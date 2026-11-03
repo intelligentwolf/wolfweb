@@ -1,5 +1,7 @@
 # WolfWeb
 
+[![Sponsor on GitHub](https://img.shields.io/badge/Sponsor-%E2%9D%A4-red?style=for-the-badge&logo=github)](https://github.com/sponsors/intelligentwolf)
+
 **A fast, private web browser that runs Chrome extensions — WolfMail's partner.**
 
 WolfWeb is built in Rust on Chromium (through the [Chromium Embedded Framework](https://bitbucket.org/chromiumembedded/cef)
@@ -24,6 +26,15 @@ they do in Chrome. It wears WolfMail's colours and type, and keeps everything on
 - **Tabs your way** — vertical tabs, split view (two tabs side by side), tab groups, pinned and muted tabs, tab search,
   memory saver, private windows, and your windows and tabs reopened next time.
 - **Mouse gestures** — hold `Alt` and drag: ← back, → forward, ↓ new tab, ↓→ close tab, ↑↓ reload, ↑ top of page.
+
+## WolfWeb's partner: WolfMail
+
+**[WolfMail](https://github.com/intelligentwolf/wolfmail)** is a fast, private desktop email client from the same
+team — every inbox you have (Gmail, Outlook, any IMAP mailbox) in one window, with calendar and contacts, your mail
+kept on your own computer. Free and open source, for Windows, macOS and Linux.
+
+WolfWeb and WolfMail share their look, and WolfWeb's side panel has a **WolfMail** tab that opens it.
+Download it from [WolfMail's releases](https://github.com/intelligentwolf/wolfmail/releases).
 
 ## How it's put together
 
@@ -58,6 +69,11 @@ cargo test --workspace                      # tests
 Every push is built and tested on all three by `.github/workflows/build.yml`; tagging `v*` publishes a release with
 checksums, cosign signatures and build provenance (`release.yml`). WolfWeb keeps its profile in
 `~/.local/share/WolfWeb` (Linux), `~/Library/Application Support/WolfWeb` (macOS) or `%APPDATA%\WolfWeb` (Windows).
+
+## Support WolfWeb
+
+WolfWeb is free. If it's useful to you, sponsoring funds its development (and WolfMail's):
+[github.com/sponsors/intelligentwolf](https://github.com/sponsors/intelligentwolf).
 
 ## Contributing
 

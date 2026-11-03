@@ -168,5 +168,6 @@
       $("mail-error").textContent = e.message === "Failed to fetch" ? "WolfWeb didn't answer. Restart WolfWeb and try again." : e.message;
     }
   });
+  $("sponsor").addEventListener("click", () => chrome.tabs.create({ url: "https://github.com/sponsors/intelligentwolf" }));
   $("mail-get").addEventListener("click", () => chrome.tabs.create({ url: "https://github.com/intelligentwolf/wolfmail/releases" }));
 })();
