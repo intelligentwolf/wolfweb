@@ -1,0 +1,82 @@
+# One job of WolfWeb's CEF build (called by cef.yml). Unpacks the previous job's build folder, runs one step of
+# build/cef/build.sh, and saves the folder for the next job. Pins: see build.yml, plus
+#   actions/download-artifact  v8.0.2  9000827ccba6bdab643e8b6fd33ac0654aef8333
+name: cef-part
+
+on:
+  workflow_call:
+    inputs:
+      step:
+        description: "build.sh step: ci-prepare, ci-build or ci-package"
+        required: true
+        type: string
+      final:
+        description: "The last build job: running out of time is then a failure, not a hand-over"
+        required: false
+        type: boolean
+        default: false
+    outputs:
+      status:
+        description: "'running' when the build needs another job, 'completed' when it's done"
+        value: ${{ jobs.part.outputs.status }}
+
+permissions:
+  contents: write
+
+jobs:
+  part:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    outputs:
+      status: ${{ steps.step.outputs.status }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Make room
+        run: build/cef/ci-state.sh setup
+      - name: Fetch the build so far
+        if: inputs.step != 'ci-prepare'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: cef-build-state
+          path: ${{ env.STATE_DIR }}
+      - name: Unpack the build so far
+        if: inputs.step != 'ci-prepare'
+        run: build/cef/ci-state.sh restore
+      - name: Run ${{ inputs.step }}
+        id: step
+        env:
+          # About 4 hours of compiling leaves time to unpack and save within the 6-hour job limit. In the last job,
+          # running out of time fails the build instead of handing it on.
+          CI_BUILD_SECONDS: "14400"
+          CI_FINAL: ${{ inputs.final }}
+        run: build/cef/build.sh ${{ inputs.step }}
+      - name: Save the build so far
+        if: inputs.step == 'ci-prepare' || steps.step.outputs.status == 'running' || steps.step.outputs.status == 'completed'
+        run: build/cef/ci-state.sh save
+      - name: Hand the build to the next job
+        if: inputs.step == 'ci-prepare' || steps.step.outputs.status == 'running' || steps.step.outputs.status == 'completed'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: cef-build-state
+          path: ${{ env.STATE_DIR }}/cef-build.tar.zst
+          if-no-files-found: error
+          overwrite: true
+          compression-level: 0
+          retention-days: 2
+      - name: Publish the CEF distribution
+        if: inputs.step == 'ci-package'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          dist="$WOLFWEB_CEF_ROOT/download/chromium/src/cef/binary_distrib"
+          file=$(ls "$dist"/cef_binary_*_linux64_minimal.tar.bz2)
+          name=$(basename "$file" .tar.bz2)
+          version=${name#cef_binary_}
+          version=${version%_linux64_minimal}
+          (cd "$dist" && sha256sum "$(basename "$file")" > "$(basename "$file").sha256")
+          tag="cef-$version"
+          gh release view "$tag" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1 \
+            || gh release create "$tag" --repo "$GITHUB_REPOSITORY" --prerelease --title "WolfWeb CEF $version" \
+                 --notes "CEF $version built by WolfWeb (build/cef/build.sh): H.264/AAC enabled. Used by WolfWeb's own builds, not an app download."
+          gh release upload "$tag" "$file" "$file.sha256" --repo "$GITHUB_REPOSITORY" --clobber
