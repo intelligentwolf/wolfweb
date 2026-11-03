@@ -25,6 +25,9 @@ case "$STEP" in
       --chromium-archive-sha256=5b1a1f3bfdf4fc559db4eddfb4492b72ffcec7ae1a52b30f8b172230788f5740
     ;;
   build)
+    # Chromium's own build dependencies, from this checkout so they match the version. Flags are from
+    # src/build/install-build-deps.py (Chromium 156): no prompt, no debug symbols, no ARM toolchain or ChromeOS fonts.
+    /build/download/chromium/src/build/install-build-deps.sh --no-prompt --no-syms --no-arm --no-chromeos-fonts --no-nacl
     # chromiumembedded.github.io/cef/automated_build_setup.html, Linux 64-bit example.
     export GN_DEFINES="is_official_build=true use_sysroot=true symbol_level=1 is_cfi=false"
     # H.264 / AAC (Facebook, Instagram, most news video): stock CEF leaves them out. The args are Chromium's own:
@@ -32,7 +35,7 @@ case "$STEP" in
     # ("Chromium" or "Chrome"; Chrome's FFmpeg carries the extra decoders).
     export GN_DEFINES="$GN_DEFINES proprietary_codecs=true ffmpeg_branding=Chrome"
     export CEF_ARCHIVE_FORMAT=tar.bz2
-    # 8 cores / 11 GB RAM + 12 GB swap on wolf-server: one link at a time keeps the official (ThinLTO) links in memory.
+    # One link at a time keeps the official (ThinLTO) links within memory on a 30 GB desktop that is also in use.
     export GN_DEFINES="$GN_DEFINES concurrent_links=1"
     "${A[@]}" --no-update --force-build --minimal-distrib --client-distrib --build-target=cefsimple --with-pgo-profiles
     ;;
