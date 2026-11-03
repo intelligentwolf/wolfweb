@@ -6,6 +6,10 @@
 # Flags: automate-git.py --help (CEF master tools/automate/automate-git.py, as the CEF docs say to use).
 set -euo pipefail
 BRANCH=8078
+# A git fetch from googlesource can stall with the connection open and nothing arriving (seen 2026-11-03: 4 KB in,
+# then silence for 20+ minutes). Under 1000 bytes/s for 10 minutes now fails the fetch instead of hanging forever.
+git config --global http.lowSpeedLimit 1000
+git config --global http.lowSpeedTime 600
 STEP="${1:-}"
 A=(python3 /build/automate/automate-git.py --download-dir=/build/download --depot-tools-dir=/build/depot_tools
    --branch="$BRANCH" --x64-build --no-chromium-history --no-debug-build)
