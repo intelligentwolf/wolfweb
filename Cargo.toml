@@ -1,0 +1,74 @@
+[workspace]
+members = ["xtask"]
+
+[package]
+name = "wolfweb"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+authors = ["IntelligentWolf Ltd"]
+description = "WolfWeb — a fast, private web browser that runs Chrome extensions. WolfMail's partner."
+publish = false
+
+# All of WolfWeb is the library; the entry points are thin:
+# - bin `wolfweb`: Linux and macOS (and Windows without the sandbox feature);
+# - bin `wolfweb_helper`: the macOS helper apps (Renderer, GPU, …) — macOS needs a separate helper executable;
+# - cdylib `wolfweb.dll`: Windows with the sandbox, started by CEF's bootstrap.exe (shipped as wolfweb.exe), which
+#   calls its exported RunWinMain. Source: cef-rs examples/cefsimple (Cargo.toml, src/lib.rs, src/win.rs).
+[lib]
+name = "wolfweb"
+path = "src/lib.rs"
+crate-type = ["rlib", "cdylib"]
+
+[[bin]]
+name = "wolfweb"
+path = "src/main.rs"
+
+[[bin]]
+name = "wolfweb_helper"
+path = "src/bin/wolfweb_helper.rs"
+
+[features]
+default = ["sandbox"]
+sandbox = ["cef/sandbox"]
+
+[package.metadata.cef.bundle]
+# Read by cef-rs's macOS bundler (cef/src/build_util/metadata.rs CargoBundleMetadata).
+helper_name = "wolfweb_helper"
+resources_path = "resources"
+
+[dependencies]
+# Chromium Embedded Framework bindings. Version pins the CEF binary distribution (156.0.15 / Chromium 156.0.8078.80).
+# default-features off: "build-util" pulls clap/cargo_metadata etc. that only the bundling tool (xtask) needs.
+cef = { version = "=156.3.0", default-features = false }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+dirs = "6"
+rusqlite = { version = "0.37", features = ["bundled"] }
+url = "2"
+getrandom = "0.3"
+
+# Versions and features as in cef-rs's workspace (Cargo.toml) and examples/cefsimple/Cargo.toml.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6.3"
+objc2-foundation = "0.3.2"
+objc2-app-kit = { version = "0.3.2", default-features = false, features = [
+    "NSApplication",
+    "NSEvent",
+    "NSResponder",
+    "NSUserInterfaceValidation",
+    "NSView",
+    "NSWindow",
+] }
+
+[target.'cfg(target_os = "windows")'.build-dependencies]
+winres = "0.1"
+
+[dev-dependencies]
+tempfile = "3"
+sha2 = "0.10"
+
+[profile.release]
+lto = "thin"
+codegen-units = 4
+strip = true

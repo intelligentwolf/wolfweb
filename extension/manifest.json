@@ -1,0 +1,78 @@
+{
+  "manifest_version": 3,
+  "name": "WolfWeb",
+  "short_name": "WolfWeb",
+  "description": "WolfWeb's own features: the new-tab page and its backgrounds, your daily newspaper, bringing your things over from other browsers, quick commands, command chains, a side panel with notes, web panels and WolfMail, and mouse gestures.",
+  "version": "0.1.0",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAjEhkanVpzqSBfSB8JIlJHlNU7YrxosAOwV0UnU9U0ca/QBCYWAGAbAQUSUOAleyV4r3Mw0WPXcnegVSQWqKzs7OWk6oYaXz+2WAgdwR6MjswQmpA1A+wSPnCTWX151y0OKoQF7rjtGnU0iXpvnMcCTvNVi+/zdXa8sFNo+C6qHLIk/FLIFA8VB82VSaRZd9xYQSdzCBl7dHr6Jx5Gwp4p0QO1MrcD0kywPBicZT53CMgZV0uLuESUpxBTKuNDk1/5gQ0j3vKM22+uForE7RNdXEB9bRzaKEXsDM+A6ArgdvALUsNS9EAkiQU7IKH07JoOEGFs5aggsl6/Edi4qVQNQIDAQAB",
+  "minimum_chrome_version": "156",
+  "icons": {
+    "32": "icons/wolfweb-32.png",
+    "64": "icons/wolfweb-64.png",
+    "128": "icons/wolfweb-128.png"
+  },
+  "chrome_url_overrides": {
+    "newtab": "newtab.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": [
+    "bookmarks",
+    "history",
+    "tabs",
+    "storage",
+    "sidePanel",
+    "sessions",
+    "topSites",
+    "favicon",
+    "declarativeNetRequestWithHostAccess",
+    "unlimitedStorage"
+  ],
+  "action": {
+    "default_title": "WolfWeb quick commands (Ctrl+Shift+Space)",
+    "default_popup": "palette.html",
+    "default_icon": {
+      "32": "icons/wolfweb-32.png",
+      "64": "icons/wolfweb-64.png"
+    }
+  },
+  "side_panel": {
+    "default_path": "panel.html"
+  },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Space",
+        "mac": "Command+Shift+Space"
+      },
+      "description": "Open quick commands"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*",
+        "file:///*"
+      ],
+      "js": [
+        "gestures.js"
+      ],
+      "run_at": "document_start"
+    }
+  ],
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "web_panels",
+        "enabled": true,
+        "path": "rules.json"
+      }
+    ]
+  }
+}

@@ -1,0 +1,20 @@
+body { font-size: 14px; padding: 12px; display: flex; flex-direction: column; gap: 12px; min-height: 100vh; }
+.bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.bar h1 { margin: 0; font-size: 22px; font-weight: 400; }
+.split { display: flex; flex-direction: column; gap: 12px; }
+.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-height: 40vh; overflow: auto; }
+.list li {
+  padding: 10px 12px; border-radius: var(--radius-control); cursor: pointer; background: var(--surface);
+  border: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.list li[aria-selected="true"] { border-color: var(--iw-red); background: var(--select-bg); }
+.list li .when { display: block; font-size: 12px; color: var(--muted-foreground); }
+.empty { margin: 0; }
+.editor { display: flex; flex-direction: column; gap: 8px; }
+.editor textarea {
+  min-height: 40vh; resize: vertical; padding: 12px; line-height: 1.5; font-size: 15px;
+  border-radius: var(--radius-control); border: 1px solid var(--border); background: var(--surface);
+}
+.editor textarea:focus { outline: none; border-color: var(--iw-red); box-shadow: var(--shadow-focus-ring); }
+.row { display: flex; gap: 8px; justify-content: space-between; flex-wrap: wrap; }
+.msg button { margin-left: 8px; }

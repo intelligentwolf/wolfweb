@@ -1,0 +1,86 @@
+body { font-size: 16px; min-height: 100vh; }
+
+.home {
+  max-width: 760px; margin: 0 auto; padding: 12vh 16px 48px;
+  display: flex; flex-direction: column; align-items: stretch; gap: 16px;
+}
+
+.brand {
+  margin: 0 0 8px; display: flex; align-items: center; justify-content: center; gap: 14px;
+  font-size: 44px; font-weight: 400;
+}
+.brand img { border-radius: 50%; box-shadow: var(--shadow-card); }
+
+.search {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 6px 6px 16px; border-radius: 999px;
+  background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow-card);
+}
+.search:focus-within { border-color: var(--iw-red); box-shadow: var(--shadow-focus-ring), var(--shadow-card); }
+.search-icon { flex: none; color: var(--muted-foreground); }
+.search input { flex: 1 1 auto; min-width: 0; height: 44px; border: 0; outline: none; background: transparent; font-size: 17px; }
+.search input:focus-visible { outline: none; } /* the whole pill shows focus */
+.search .btn { border-radius: 999px; min-height: 44px; padding: 0 22px; }
+
+.hint { margin: -4px 0 8px; text-align: center; font-size: 14px; color: var(--muted-foreground); }
+kbd {
+  font: 500 12px var(--font-sans); padding: 1px 6px; border-radius: 4px;
+  border: 1px solid var(--border); background: var(--surface);
+}
+
+.section-title { margin: 8px 0 8px; font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted-foreground); }
+.dial { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); gap: 12px; }
+.dial a {
+  display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 8px; min-height: 96px;
+  border-radius: var(--radius); background: var(--surface); border: 1px solid var(--border);
+  color: var(--foreground); text-decoration: none; font-size: 13px; text-align: center;
+  transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+.dial a:hover { border-color: rgba(196, 30, 30, 0.45); box-shadow: var(--shadow-card); }
+.dial img { width: 32px; height: 32px; }
+.dial .name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dial-empty { margin: 0; font-size: 14px; }
+
+.links { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-top: 8px; }
+.link {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left;
+  min-height: 64px; padding: 12px 14px; border-radius: var(--radius); cursor: pointer;
+  background: var(--surface); border: 1px solid var(--border); color: var(--foreground);
+  transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+.link:hover { border-color: rgba(196, 30, 30, 0.45); box-shadow: var(--shadow-card); }
+.link-title { font-weight: 600; font-size: 15px; }
+.link-sub { font-size: 13px; color: var(--muted-foreground); }
+
+/* ── Backgrounds ─────────────────────────────────────────────────────────────────────────────────────────────── */
+body.has-bg { background-size: cover; background-position: center; background-attachment: fixed; }
+/* A scrim keeps the wordmark and hint readable on any photo (white text needs ≥ 4.5:1 on the darkened image). */
+body.has-bg::before { content: ""; position: fixed; inset: 0; background: linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.2) 45%, rgba(0, 0, 0, 0.5)); pointer-events: none; z-index: 0; }
+body.has-bg .home { position: relative; z-index: 1; }
+body.has-bg .brand { color: #fff; text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6); }
+body.has-bg .hint, body.has-bg .section-title, body.has-bg .dial-empty { color: #fff; text-shadow: 0 1px 6px rgba(0, 0, 0, 0.8); }
+body.has-bg .hint kbd { color: var(--foreground); text-shadow: none; }
+
+.customise {
+  position: fixed; right: 16px; bottom: 16px; z-index: 2; display: inline-flex; align-items: center; gap: 8px;
+  min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface);
+  color: var(--foreground); font-weight: 600; font-size: 14px; cursor: pointer; box-shadow: var(--shadow-card);
+}
+.customise:hover { border-color: var(--iw-red); }
+.credit {
+  position: fixed; left: 16px; bottom: 16px; z-index: 2; max-width: min(60vw, 640px); margin: 0;
+  padding: 6px 10px; border-radius: var(--radius-control); background: rgba(0, 0, 0, 0.6); color: #fff; font-size: 12px; line-height: 1.4;
+}
+.credit a { color: #fff; }
+
+.backdrop { position: fixed; inset: 0; z-index: 10; background: rgba(0, 0, 0, 0.45); display: grid; place-items: center; padding: 16px; }
+.backdrop[hidden] { display: none; }
+.dialog { width: min(520px, 100%); padding: 22px; display: flex; flex-direction: column; gap: 14px; }
+.dialog h2 { margin: 0; font-size: 20px; }
+.choices { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.choices label { display: flex; gap: 12px; align-items: flex-start; padding: 10px 12px; border-radius: var(--radius-control); border: 1px solid var(--border); cursor: pointer; font-size: 15px; line-height: 1.4; }
+.choices label:has(input:checked) { border-color: var(--iw-red); background: var(--select-bg); }
+.choices input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--iw-red); flex: none; }
+.choices .muted { font-size: 13px; }
+.dialog-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.dialog-row.end { justify-content: flex-end; }

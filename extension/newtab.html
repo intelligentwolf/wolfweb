@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>New tab</title>
+  <link rel="icon" href="icons/wolfweb-32.png">
+  <link rel="stylesheet" href="theme.css">
+  <link rel="stylesheet" href="newtab.css">
+</head>
+<body>
+  <main class="home">
+    <h1 class="brand"><img src="icons/wolfweb-128.png" alt="" width="56" height="56"><span class="font-title">WolfWeb</span></h1>
+
+    <form class="search" action="https://www.google.com/search" method="get" role="search">
+      <label for="q" class="sr-only">Search Google or type a web address</label>
+      <svg class="search-icon" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M13 13l4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      <input id="q" name="q" type="search" autocomplete="off" autofocus spellcheck="false"
+             placeholder="Search Google or type a web address" aria-describedby="search-hint">
+      <button class="btn btn-primary" type="submit">Search</button>
+    </form>
+    <p id="search-hint" class="hint">Searches go to Google. <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Space</kbd> opens quick commands. <kbd>Alt</kbd> + drag draws mouse gestures (← back, → forward, ↓ new tab, ↓→ close).</p>
+
+    <section aria-labelledby="dial-title" class="dial-section">
+      <h2 id="dial-title" class="section-title">Most visited</h2>
+      <ul id="dial" class="dial"></ul>
+      <p id="dial-empty" class="muted dial-empty" hidden>Sites you visit often will appear here.</p>
+    </section>
+
+    <nav class="links" aria-label="Shortcuts">
+      <button class="link" type="button" data-open="import.html">
+        <span class="link-title">Bring your stuff</span><span class="link-sub">From Vivaldi, Chrome, Firefox…</span>
+      </button>
+      <button class="link" type="button" data-open="https://chromewebstore.google.com/category/extensions">
+        <span class="link-title">Get extensions</span><span class="link-sub">Chrome Web Store</span>
+      </button>
+      <button class="link" type="button" data-open="daily.html">
+        <span class="link-title">Your newspaper</span><span class="link-sub">The WolfWeb Daily</span>
+      </button>
+      <button class="link" type="button" data-open="chrome://bookmarks">
+        <span class="link-title">Bookmarks</span><span class="link-sub">Ctrl+Shift+O</span>
+      </button>
+      <button class="link" type="button" data-open="chrome://history">
+        <span class="link-title">History</span><span class="link-sub">Ctrl+H</span>
+      </button>
+    </nav>
+    <p id="error" class="msg msg-err" role="alert"></p>
+  </main>
+
+  <p id="credit" class="credit" hidden></p>
+  <button id="customise" class="customise" type="button" aria-haspopup="dialog">
+    <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M3 14.5V17h2.5L15 7.5 12.5 5 3 14.5zM16.7 5.8a.9.9 0 000-1.3l-1.2-1.2a.9.9 0 00-1.3 0l-1 1L15.7 6.8l1-1z" fill="currentColor"/></svg>
+    Customise
+  </button>
+
+  <div id="dialog-backdrop" class="backdrop" hidden>
+    <div id="dialog" class="dialog card" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
+      <h2 id="dialog-title">Background</h2>
+      <fieldset class="choices">
+        <legend class="sr-only">Background</legend>
+        <label><input type="radio" name="bg" value="none"> <span><strong>None</strong><br><span class="muted">WolfWeb's own colours</span></span></label>
+        <label><input type="radio" name="bg" value="daily"> <span><strong>Picture of the day</strong><br><span class="muted">A new photo every day from Wikimedia Commons, credited on the page</span></span></label>
+        <label><input type="radio" name="bg" value="folder"> <span><strong>From my Pictures folder</strong><br><span class="muted">A different one of your photos each day</span></span></label>
+        <label><input type="radio" name="bg" value="custom"> <span><strong>A picture I choose</strong><br><span class="muted">Pick any photo on this computer</span></span></label>
+      </fieldset>
+      <div class="dialog-row">
+        <input id="bg-file" type="file" accept="image/*" hidden>
+        <button id="bg-choose" class="btn" type="button" hidden>Choose a picture…</button>
+        <button id="bg-next" class="btn" type="button" hidden>Show another</button>
+      </div>
+      <p id="bg-status" class="msg msg-ok" role="status" aria-live="polite"></p>
+      <p id="bg-error" class="msg msg-err" role="alert" aria-live="assertive"></p>
+      <div class="dialog-row end"><button id="dialog-close" class="btn btn-primary" type="button">Done</button></div>
+    </div>
+  </div>
+  <script src="newtab.js"></script>
+  <script src="ntp-background.js"></script>
+</body>
+</html>

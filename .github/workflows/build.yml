@@ -1,0 +1,60 @@
+# Builds, tests and bundles WolfWeb on Linux, Windows and macOS on every push, so "works on all three" is checked
+# by a real compile + bundle on each OS. The bundles are kept as workflow artifacts.
+#
+# Action versions are pinned to commit SHAs (supply-chain rule, OWASP A03) — the same pins WolfMail uses
+# (wolfmail/.github/workflows/build.yml and release.yml, looked up 2026-10-28):
+#   actions/checkout         v7.0.1  3d3c42e5aac5ba805825da76410c181273ba90b1
+#   Swatinem/rust-cache      v2.9.3  d1527c8f67ef9af357290475d4af4b0fab8f12e0
+#   actions/upload-artifact          cf430e030ddbb5b0abf93d22962f4752f3646cd9
+# The Rust toolchain comes from rust-toolchain.toml; the CEF runtime matching the `cef` crate from
+# scripts/fetch-cef.sh (bash — Git Bash on the Windows runner).
+name: build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            name: linux-x86_64
+          - os: windows-latest
+            name: windows-x86_64
+          - os: macos-latest
+            name: macos-arm64
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
+      - name: Extension files parse
+        run: |
+          for f in extension/*.js; do node --check "$f"; done
+          python3 -m json.tool extension/manifest.json > /dev/null
+          python3 -m json.tool extension/rules.json > /dev/null
+      - name: Fetch CEF
+        run: scripts/fetch-cef.sh
+      - name: Lint
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --workspace
+      - name: Bundle
+        run: cargo run -p xtask -- bundle --release
+      - name: Ad-hoc sign the app (macOS)
+        if: runner.os == 'macOS'
+        run: codesign --force --deep --sign - dist/wolfweb.app
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: wolfweb-${{ matrix.name }}
+          path: dist/
+          retention-days: 14

@@ -1,0 +1,7 @@
+target/
+third_party/
+dist/
+.spike/
+*.local
+.env
+.claude/

@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>WolfWeb panel</title>
+  <link rel="stylesheet" href="theme.css">
+  <link rel="stylesheet" href="notes.css">
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+  <nav class="switcher" role="tablist" aria-label="Panel">
+    <button role="tab" id="tab-notes" aria-controls="sec-notes" aria-selected="true">Notes</button>
+    <button role="tab" id="tab-web" aria-controls="sec-web" aria-selected="false" tabindex="-1">Web panels</button>
+    <button role="tab" id="tab-mail" aria-controls="sec-mail" aria-selected="false" tabindex="-1">WolfMail</button>
+  </nav>
+
+  <section id="sec-notes" role="tabpanel" aria-labelledby="tab-notes" class="sec">
+    <header class="bar">
+      <h1 class="font-title">Notes</h1>
+      <button id="new" class="btn btn-primary" type="button">New note</button>
+    </header>
+    <div class="split">
+      <ul id="list" class="list" role="listbox" aria-label="Your notes"></ul>
+      <p id="empty" class="empty muted" hidden>No notes yet. Notes are kept in WolfWeb on this computer.</p>
+      <section id="editor" class="editor" hidden aria-label="Note">
+        <label for="text" class="sr-only">Note text</label>
+        <textarea id="text" placeholder="Write something…" spellcheck="true"></textarea>
+        <div class="row">
+          <button id="add-page" class="btn" type="button">Add this page's link</button>
+          <button id="delete" class="btn" type="button">Delete note</button>
+        </div>
+      </section>
+    </div>
+    <p id="status" class="msg msg-ok" role="status" aria-live="polite"></p>
+    <p id="error" class="msg msg-err" role="alert" aria-live="assertive"></p>
+  </section>
+
+  <section id="sec-web" role="tabpanel" aria-labelledby="tab-web" class="sec" hidden>
+    <header class="bar">
+      <h1 class="font-title">Web panels</h1>
+      <button id="web-add-current" class="btn" type="button">Add this page</button>
+    </header>
+    <form id="web-form" class="web-form" novalidate>
+      <label for="web-url" class="sr-only">Web address for a new panel</label>
+      <input id="web-url" type="text" placeholder="Add a site, e.g. calendar.google.com" autocomplete="off" aria-describedby="web-url-error">
+      <button class="btn btn-primary" type="submit">Add</button>
+    </form>
+    <p id="web-url-error" class="field-error" hidden>Type a web address, like example.com.</p>
+    <div id="web-chips" class="chips" role="tablist" aria-label="Your web panels"></div>
+    <p id="web-empty" class="muted" hidden>Keep sites you check often — chat, calendar, news — open beside the page you're on.</p>
+    <div id="web-view" class="web-view" hidden>
+      <div class="row">
+        <span id="web-title" class="web-title"></span>
+        <button id="web-open-tab" class="btn" type="button">Open in a tab</button>
+        <button id="web-remove" class="btn" type="button">Remove panel</button>
+      </div>
+      <iframe id="web-frame" title="Web panel" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+    </div>
+    <p id="web-status" class="msg msg-ok" role="status" aria-live="polite"></p>
+  </section>
+
+  <section id="sec-mail" role="tabpanel" aria-labelledby="tab-mail" class="sec" hidden>
+    <header class="bar"><h1 class="font-title">WolfMail</h1></header>
+    <p>WolfMail is WolfWeb's partner: every inbox you have, in one window.</p>
+    <div class="row start">
+      <button id="mail-open" class="btn btn-primary" type="button">Open WolfMail</button>
+      <button id="mail-get" class="btn" type="button">Get WolfMail</button>
+    </div>
+    <p id="mail-status" class="msg msg-ok" role="status" aria-live="polite"></p>
+    <p id="mail-error" class="msg msg-err" role="alert" aria-live="assertive"></p>
+  </section>
+
+  <script src="notes.js"></script>
+  <script src="panel.js"></script>
+</body>
+</html>

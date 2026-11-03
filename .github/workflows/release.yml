@@ -1,0 +1,101 @@
+# Release: push a tag like v0.2.0 → WolfWeb is built on Linux, Windows and macOS and published as a GitHub release
+# with SHA-256 checksums, keyless cosign signatures and SLSA build provenance, as WolfMail's and WolfStack's
+# releases are (Source: wolfmail/.github/workflows/release.yml "verify" job — same steps, pins and cosign v2.4.1).
+# macOS apps are ad-hoc signed only (no Apple Developer ID), like WolfMail's.
+#
+# Action SHAs: see build.yml header (same pins), plus
+#   actions/attest-build-provenance  v3  977bb373ede98d70efdf65b84cb5f73e068dcc2a
+#   sigstore/cosign-installer        v3  398d4b0eeef1380460a10c8013a76f728fb906ac
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            name: linux-x86_64
+          - os: windows-latest
+            name: windows-x86_64
+          - os: macos-latest
+            name: macos-arm64
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
+      - name: Fetch CEF
+        run: scripts/fetch-cef.sh
+      - name: Test
+        run: cargo test --workspace
+      - name: Bundle
+        run: cargo run -p xtask -- bundle --release
+      - name: Archive
+        run: |
+          mkdir -p out
+          case "${{ runner.os }}" in
+            Linux)   tar -C dist -czf "out/WolfWeb-${TAG}-${{ matrix.name }}.tar.gz" wolfweb-linux-x86_64 ;;
+            Windows) (cd dist && 7z a -tzip "../out/WolfWeb-${TAG}-${{ matrix.name }}.zip" wolfweb-windows-x86_64) ;;
+            macOS)   codesign --force --deep --sign - dist/wolfweb.app
+                     # ditto keeps the framework's symlinks, which a plain zip would break.
+                     ditto -c -k --keepParent dist/wolfweb.app "out/WolfWeb-${TAG}-${{ matrix.name }}.zip" ;;
+          esac
+          ls -la out
+      - name: Upload to the release
+        run: |
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1 \
+            || gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "WolfWeb $TAG" --notes "WolfWeb $TAG" || true
+          gh release upload "$TAG" out/* --repo "$GITHUB_REPOSITORY" --clobber
+
+  verify:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: ${{ github.ref_name }}
+    steps:
+      - name: Download the release's files
+        run: |
+          mkdir dist
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir dist
+          ls -la dist
+      - name: Compute SHA-256 checksums
+        run: |
+          cd dist
+          sha256sum -- * > SHA256SUMS
+          cat SHA256SUMS
+      - name: Generate build-provenance attestation
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+        with:
+          subject-path: dist/*
+      - name: Install cosign
+        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
+        with:
+          cosign-release: 'v2.4.1'
+      - name: Sign every file with cosign (keyless)
+        run: |
+          cd dist
+          for f in *; do
+            [ "$f" = "SHA256SUMS" ] && continue
+            cosign sign-blob --yes --bundle "${f}.cosign.bundle" "$f"
+          done
+          cosign sign-blob --yes --bundle SHA256SUMS.cosign.bundle SHA256SUMS
+      - name: Upload checksums and signatures
+        run: gh release upload "$TAG" dist/SHA256SUMS dist/*.cosign.bundle --repo "$GITHUB_REPOSITORY" --clobber

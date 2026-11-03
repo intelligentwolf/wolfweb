@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Quick commands</title>
+  <link rel="stylesheet" href="theme.css">
+  <link rel="stylesheet" href="palette.css">
+</head>
+<body>
+  <div class="palette">
+    <label for="q" class="sr-only">Search tabs, bookmarks, history and commands</label>
+    <input id="q" type="text" role="combobox" aria-expanded="true" aria-controls="results" aria-autocomplete="list"
+           autocomplete="off" spellcheck="false" placeholder="Search tabs, bookmarks, history, commands…" autofocus>
+    <ul id="results" class="results" role="listbox" aria-label="Results"></ul>
+    <p id="empty" class="empty muted" hidden>Nothing matches. Press Enter to search Google for it.</p>
+    <p class="foot muted"><kbd>↑</kbd><kbd>↓</kbd> choose · <kbd>Enter</kbd> open · <kbd>Esc</kbd> close</p>
+    <p id="error" class="msg msg-err" role="alert"></p>
+  </div>
+  <script src="commands.js"></script>
+  <script src="palette.js"></script>
+</body>
+</html>

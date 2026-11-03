@@ -1,0 +1,16 @@
+[package]
+name = "xtask"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+publish = false
+description = "Builds WolfWeb bundles: cargo run -p xtask -- bundle [--release]"
+
+[dependencies]
+anyhow = "1"
+
+# macOS only: cef-rs's app-bundle builder (cef/src/build_util/mac.rs bundle()) makes the .app, its five helper apps
+# and their Info.plists exactly as CEF expects.
+[target.'cfg(target_os = "macos")'.dependencies]
+cef = { version = "=156.3.0", default-features = false, features = ["build-util"] }
+semver = "1"

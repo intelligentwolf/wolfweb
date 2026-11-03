@@ -1,0 +1,38 @@
+body { font-size: 16px; }
+.page { max-width: 760px; margin: 0 auto; padding: 40px 16px 64px; display: flex; flex-direction: column; gap: 20px; }
+.head { display: flex; align-items: center; gap: 16px; }
+.head img { border-radius: 50%; box-shadow: var(--shadow-card); flex: none; }
+h1 { margin: 0; font-size: 32px; font-weight: 400; }
+h2 { margin: 0 0 6px; font-size: 19px; display: flex; align-items: center; gap: 10px; }
+h3 { margin: 16px 0 4px; font-size: 16px; }
+p { margin: 0; line-height: 1.5; }
+.pad { padding: 22px; display: flex; flex-direction: column; gap: 14px; }
+.step {
+  display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%;
+  background: var(--iw-red); color: #fff; font-size: 14px; font-weight: 700; flex: none;
+}
+fieldset { border: 0; margin: 0; padding: 0; }
+legend { font-weight: 600; font-size: 14px; margin-bottom: 8px; }
+.sources { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.source {
+  display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 10px 14px; cursor: pointer;
+  border-radius: var(--radius-control); border: 1px solid var(--border); background: var(--surface-raised);
+}
+.source:has(input:checked) { border-color: var(--iw-red); background: var(--select-bg); }
+.source .name { font-weight: 600; display: block; }
+.source .sub { font-size: 13px; color: var(--muted-foreground); }
+.what { display: flex; flex-direction: column; gap: 8px; }
+.what label { display: flex; gap: 10px; align-items: baseline; font-size: 15px; }
+input[type="checkbox"], input[type="radio"] { width: 18px; height: 18px; accent-color: var(--iw-red); flex: none; }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.howto { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 6px; line-height: 1.5; }
+code { font-size: 0.92em; padding: 0 4px; border-radius: 4px; background: var(--surface-raised); }
+.ext-list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.ext-list li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 12px; border-radius: var(--radius-control); background: var(--surface-raised); }
+.skeleton {
+  height: 56px; border-radius: var(--radius-control);
+  background: linear-gradient(90deg, var(--surface-raised) 0%, var(--surface-inset) 40%, var(--surface-raised) 80%);
+  background-size: 800px 100%; animation: shimmer 1.4s linear infinite;
+}
+@keyframes shimmer { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }
+@media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }

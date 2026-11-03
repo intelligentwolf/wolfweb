@@ -1,0 +1,129 @@
+/* WolfWeb theme — the same IntelligentWolf tokens as WolfMail so the two apps read as one product.
+   Source: wolfmail/src/styles/index.css:6-113 (brand tokens, light :root and .dark), :145-146 (font stacks),
+   :149-160 (radii/shadows), :175-180 (focus ring), :181-185 (scrollbars). */
+
+@font-face {
+  font-family: "Inter Variable";
+  src: url("fonts/inter-latin-wght-normal.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Righteous";
+  src: url("fonts/righteous-regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --iw-go: #15803d;
+  --iw-red: #c41e1e;
+  --iw-red-hover: #a81a1a;
+  --iw-red-wash: rgba(196, 30, 30, 0.08);
+  --iw-red-text: #c41e1e;
+  --iw-warn-text: #8a6416;
+  --iw-go-text: #166534;
+  --iw-plum: #2d1b2d;
+  --iw-cream: #e6d5b8;
+  --iw-cream-soft: #f6f1e7;
+  --iw-surface: #ffffff;
+  --iw-surface-sunk: #eceaee;
+  --iw-ink: #17141a;
+  --iw-ink-soft: #6b6470;
+  --iw-line: rgba(45, 27, 45, 0.12);
+
+  --foreground: var(--iw-ink);
+  --muted-foreground: var(--iw-ink-soft);
+  --border: var(--iw-line);
+  --surface: var(--iw-surface);
+  --surface-raised: var(--iw-cream-soft);
+  --surface-inset: var(--iw-surface-sunk);
+  --scrollbar-thumb: rgba(45, 27, 45, 0.16);
+  --scrollbar-thumb-hover: rgba(45, 27, 45, 0.28);
+  --select-bg: rgba(196, 30, 30, 0.08);
+  --select-bg-strong: rgba(196, 30, 30, 0.14);
+  --shadow-card: 0 1px 3px rgba(26, 20, 32, 0.08), 0 6px 16px rgba(26, 20, 32, 0.06);
+  --shadow-focus-ring: 0px 0px 0px 4px rgba(196, 30, 30, 0.12);
+
+  --radius: 0.75rem;
+  --radius-control: 8px;
+  --dur-fast: 120ms;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --font-sans: "Inter Variable", "Inter", system-ui, -apple-system, sans-serif;
+  --font-title: "Righteous", "Inter Variable", system-ui, sans-serif;
+  color-scheme: light;
+}
+
+/* WolfMail switches with a .dark class; here the system setting decides (same values). */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --iw-red-hover: #d93636;
+    --iw-red-wash: rgba(196, 30, 30, 0.16);
+    --iw-red-text: #ff7a7a;
+    --iw-warn-text: #c9a24b;
+    --iw-go-text: #4ade80;
+    --iw-plum: #4b4c53;
+    --iw-cream: #e0e6e6;
+    --iw-cream-soft: #37383f;
+    --iw-surface: #2e2f37;
+    --iw-surface-sunk: #1b1c24;
+    --iw-ink: #eceff1;
+    --iw-ink-soft: #a9adb4;
+    --iw-line: rgba(224, 230, 230, 0.14);
+    --scrollbar-thumb: rgba(255, 255, 255, 0.15);
+    --scrollbar-thumb-hover: rgba(255, 255, 255, 0.25);
+    --select-bg: rgba(217, 54, 54, 0.16);
+    --select-bg-strong: rgba(217, 54, 54, 0.26);
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 16px rgba(0, 0, 0, 0.28);
+    color-scheme: dark;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-fast: 0ms; }
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { font-family: var(--font-sans); color: var(--foreground); background: var(--surface-inset); -webkit-font-smoothing: antialiased; }
+button, input, select, textarea { font: inherit; color: inherit; }
+.font-title { font-family: var(--font-title); letter-spacing: 0.01em; }
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+.muted { color: var(--muted-foreground); }
+
+/* Visible focus for keyboard users — WCAG 2.4.7 (wolfmail index.css:175-180). */
+:where(button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"]), [role="option"]):focus-visible {
+  outline: 2px solid var(--iw-red);
+  outline-offset: 2px;
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); background-clip: padding-box; border: 2px solid transparent; }
+
+/* Buttons — one style per role. */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 40px; padding: 0 16px; border-radius: var(--radius-control);
+  border: 1px solid var(--border); background: var(--surface); color: var(--foreground);
+  font-weight: 500; font-size: 14px; cursor: pointer; text-decoration: none;
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+.btn:hover { background: var(--surface-raised); }
+.btn:disabled { opacity: 0.55; cursor: default; }
+.btn-primary { background: var(--iw-red); border-color: var(--iw-red); color: #fff; }
+.btn-primary:hover { background: var(--iw-red-hover); border-color: var(--iw-red-hover); }
+
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-card); }
+
+/* Messages: role="status" for confirmations, role="alert" for failures (which never auto-dismiss). */
+.msg { border-radius: var(--radius-control); padding: 10px 14px; font-size: 14px; line-height: 1.45; margin: 0; }
+.msg:empty { display: none; }
+.msg-ok { background: rgba(21, 128, 61, 0.1); color: var(--iw-go-text); border: 1px solid rgba(21, 128, 61, 0.3); }
+.msg-err { background: var(--iw-red-wash); color: var(--iw-red-text); border: 1px solid rgba(196, 30, 30, 0.35); }

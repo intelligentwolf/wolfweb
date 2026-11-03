@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The WolfWeb Daily</title>
+  <link rel="icon" href="icons/wolfweb-32.png">
+  <link rel="stylesheet" href="theme.css">
+  <link rel="stylesheet" href="daily.css">
+</head>
+<body>
+  <div class="toolbar no-print" role="toolbar" aria-label="Newspaper">
+    <button id="refresh" class="btn" type="button">Fetch today's news</button>
+    <button id="edit" class="btn" type="button">Choose what's in it</button>
+    <span class="grow"></span>
+    <button id="print" class="btn" type="button">Print</button>
+    <button id="pdf" class="btn btn-primary" type="button">Download PDF</button>
+  </div>
+  <p id="status" class="msg msg-ok no-print" role="status" aria-live="polite"></p>
+  <p id="error" class="msg msg-err no-print" role="alert" aria-live="assertive"></p>
+
+  <section id="setup" class="setup card no-print" aria-labelledby="setup-title" hidden>
+    <h1 id="setup-title" class="font-title">Your newspaper</h1>
+    <p class="muted">WolfWeb makes you a front page from the things you're interested in — print it or save it as a PDF.</p>
+    <form id="setup-form" novalidate>
+      <div class="field">
+        <label for="masthead">Name of your paper</label>
+        <input id="masthead" type="text" autocomplete="off" maxlength="60">
+      </div>
+      <div class="field">
+        <label for="topic-input">Things you're interested in</label>
+        <div class="row">
+          <input id="topic-input" type="text" autocomplete="off" placeholder="e.g. Rust programming, wolves, Formula 1" aria-describedby="topic-hint topic-error">
+          <button id="topic-add" class="btn" type="button">Add</button>
+        </div>
+        <p id="topic-hint" class="muted small">Each one becomes a section, filled from Google News.</p>
+        <p id="topic-error" class="field-error" hidden>Add at least one interest or news source.</p>
+        <ul id="topics" class="chips" aria-label="Your interests"></ul>
+      </div>
+      <fieldset class="field">
+        <legend>News sources (optional)</legend>
+        <div id="presets" class="presets"></div>
+        <div class="row">
+          <label for="feed-input" class="sr-only">Another news feed address (RSS or Atom)</label>
+          <input id="feed-input" type="url" autocomplete="off" placeholder="Another feed: https://…/rss" aria-describedby="feed-error">
+          <button id="feed-add" class="btn" type="button">Add feed</button>
+        </div>
+        <p id="feed-error" class="field-error" hidden>That doesn't look like a web address.</p>
+        <ul id="feeds" class="chips" aria-label="Your other feeds"></ul>
+      </fieldset>
+      <div class="row end">
+        <button id="setup-cancel" class="btn" type="button">Cancel</button>
+        <button class="btn btn-primary" type="submit">Make my paper</button>
+      </div>
+    </form>
+  </section>
+
+  <article id="paper" class="paper" hidden>
+    <header class="masthead">
+      <div class="ears"><span id="edition-for"></span><span id="edition-count"></span></div>
+      <h1 id="paper-name" class="paper-name"></h1>
+      <div class="dateline"><span id="paper-date"></span><span>Made by WolfWeb</span></div>
+    </header>
+    <section id="lead" class="lead"></section>
+    <div id="sections"></div>
+    <footer class="colophon">Stories link to their publishers. Interests via Google News; feeds as you chose them.</footer>
+  </article>
+  <script src="daily.js"></script>
+</body>
+</html>

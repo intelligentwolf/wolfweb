@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Command chains — WolfWeb</title>
+  <link rel="icon" href="icons/wolfweb-32.png">
+  <link rel="stylesheet" href="theme.css">
+  <link rel="stylesheet" href="chains.css">
+</head>
+<body>
+  <main class="page">
+    <h1 class="font-title">Command chains</h1>
+    <p class="muted">A chain runs several commands one after another. Run it from quick commands (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Space</kbd>) by typing its name.</p>
+
+    <section class="card pad" aria-labelledby="new-title">
+      <h2 id="new-title">New chain</h2>
+      <form id="form" novalidate>
+        <div class="field">
+          <label for="name">Name</label>
+          <input id="name" type="text" autocomplete="off" aria-describedby="name-error">
+          <p id="name-error" class="field-error" hidden>Give the chain a name.</p>
+        </div>
+        <div class="field">
+          <label for="step">Add a step</label>
+          <div class="row">
+            <select id="step"></select>
+            <button id="add-step" class="btn" type="button">Add step</button>
+          </div>
+        </div>
+        <ol id="steps" class="steps" aria-label="Steps"></ol>
+        <p id="steps-error" class="field-error" hidden>Add at least one step.</p>
+        <button class="btn btn-primary" type="submit">Save chain</button>
+      </form>
+    </section>
+
+    <section aria-labelledby="saved-title">
+      <h2 id="saved-title">Your chains</h2>
+      <ul id="saved" class="saved"></ul>
+      <p id="none" class="muted" hidden>No chains yet.</p>
+    </section>
+    <p id="status" class="msg msg-ok" role="status" aria-live="polite"></p>
+    <p id="error" class="msg msg-err" role="alert"></p>
+  </main>
+  <script src="commands.js"></script>
+  <script src="chains.js"></script>
+</body>
+</html>

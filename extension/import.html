@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bring your stuff — WolfWeb</title>
+  <link rel="icon" href="icons/wolfweb-32.png">
+  <link rel="stylesheet" href="theme.css">
+  <link rel="stylesheet" href="import.css">
+</head>
+<body>
+  <main class="page">
+    <header class="head">
+      <img src="icons/wolfweb-64.png" alt="" width="48" height="48">
+      <div>
+        <h1 class="font-title">Bring your stuff to WolfWeb</h1>
+        <p class="muted">Bookmarks, history, passwords and extensions from the browser you use now.</p>
+      </div>
+    </header>
+
+    <section class="card pad" aria-labelledby="from-title">
+      <h2 id="from-title"><span class="step">1</span> Bookmarks, history and extensions</h2>
+      <p class="muted">From Vivaldi, Chrome, Chromium, Brave, Edge or Opera on this computer. The other browser can stay open.</p>
+      <div id="sources-loading" class="skeleton" aria-hidden="true"></div>
+      <fieldset id="sources-box" hidden>
+        <legend class="sr-only">Import from</legend>
+        <div id="sources" class="sources"></div>
+      </fieldset>
+      <p id="sources-empty" class="muted" hidden>WolfWeb didn't find Vivaldi, Chrome, Chromium, Brave, Edge or Opera on this computer. For Firefox, use step 3.</p>
+      <fieldset id="what" class="what" hidden>
+        <legend>Bring over</legend>
+        <label><input type="checkbox" id="want-bookmarks" checked> Bookmarks <span class="muted">(including Vivaldi Speed Dials)</span></label>
+        <label><input type="checkbox" id="want-history" checked> History <span class="muted">(your 5,000 most recent pages)</span></label>
+        <label><input type="checkbox" id="want-extensions" checked> List of extensions <span class="muted">(add each back with one click)</span></label>
+      </fieldset>
+      <div class="actions"><button id="go" class="btn btn-primary" type="button" hidden>Import</button></div>
+      <p id="progress" class="msg msg-ok" role="status" aria-live="polite"></p>
+      <p id="error" class="msg msg-err" role="alert" aria-live="assertive"></p>
+      <div id="ext-result" hidden>
+        <h3>Your extensions</h3>
+        <p class="muted">Each opens in the Chrome Web Store — press “Add to Chrome” there and it installs in WolfWeb.</p>
+        <ul id="ext-list" class="ext-list"></ul>
+      </div>
+    </section>
+
+    <section class="card pad" aria-labelledby="pw-title">
+      <h2 id="pw-title"><span class="step">2</span> Passwords</h2>
+      <ol class="howto">
+        <li>In your other browser, open its password settings and choose <strong>Export passwords</strong>. It saves a <code>.csv</code> file.</li>
+        <li>Press the button below, then <strong>Import passwords</strong> and pick that file.</li>
+        <li><strong>Delete the .csv file afterwards</strong> — it holds your passwords as plain text.</li>
+      </ol>
+      <p class="muted">Your passwords go straight into WolfWeb's password manager; WolfWeb's own code never reads them.</p>
+      <div class="actions"><button class="btn btn-primary" type="button" data-open="chrome://password-manager/settings">Open password import</button></div>
+    </section>
+
+    <section class="card pad" aria-labelledby="ff-title">
+      <h2 id="ff-title"><span class="step">3</span> Firefox, or a bookmarks file</h2>
+      <p class="muted">Firefox bookmarks, history and passwords, or a bookmarks HTML file saved from any browser.</p>
+      <div class="actions"><button class="btn" type="button" data-open="chrome://settings/importData">Open Firefox and file import</button></div>
+    </section>
+  </main>
+  <script src="import.js"></script>
+</body>
+</html>
