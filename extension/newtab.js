@@ -62,5 +62,9 @@
     })
     .catch(() => (document.getElementById("dial-empty").hidden = false));
 
+  // Keep WolfWeb's menu bar and 📰 Daily button on the bookmarks bar (cheap when they're already there).
+  /* global WOLFWEB_MENUBAR */
+  WOLFWEB_MENUBAR.sync().catch(() => {});
+
   input.focus();
 })();

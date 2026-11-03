@@ -6,6 +6,10 @@ importScripts("features.js", "menubar.js");
 const syncMenuBar = () => WOLFWEB_MENUBAR.sync().catch((e) => console.error("WolfWeb menu bar:", e));
 chrome.runtime.onStartup.addListener(syncMenuBar);
 chrome.runtime.onInstalled.addListener(syncMenuBar);
+// Also whenever the worker starts: for an extension loaded from the command line Chromium doesn't reliably send
+// onStartup/onInstalled to an existing profile (observed — the menus never appeared). sync() is cheap when the
+// menus are already right.
+syncMenuBar();
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === "local" && changes.features) syncMenuBar();
 });
