@@ -29,7 +29,7 @@ pub fn set_preference(context: &RequestContext, name: &str, mut value: Value) ->
     ok
 }
 
-fn bool_value(b: bool) -> Option<Value> {
+pub fn bool_value(b: bool) -> Option<Value> {
     let v = value_create()?;
     v.set_bool(b as i32);
     Some(v)

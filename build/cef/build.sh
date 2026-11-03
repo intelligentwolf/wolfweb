@@ -4,10 +4,11 @@
 #
 # Locally, in the container from ./Dockerfile with the build folder mounted at /build:
 #   build.sh download     — depot_tools, CEF, and Chromium from Google's source tarball (no build)
-#   build.sh build        — Chromium's build dependencies, build Release, make the minimal + client distributions
+#   build.sh build        — WolfWeb's patches (patches/), Chromium's build dependencies, build Release, make the
+#                           minimal + client distributions
 #
 # On GitHub Actions (.github/workflows/cef.yml), where a job may run for at most 6 hours, so the build is split:
-#   build.sh ci-prepare   — fetch everything, install dependencies, generate the build files
+#   build.sh ci-prepare   — fetch everything, apply WolfWeb's patches, install dependencies, generate the build files
 #   build.sh ci-build     — compile for up to CI_BUILD_SECONDS (default 4 h, leaving time to unpack and save the
 #                           build within the 6-hour job limit), then stop cleanly; the next job carries on
 #   build.sh ci-package   — make the minimal binary distribution (what the `cef` crate downloads)
@@ -30,6 +31,14 @@ CHROMIUM_VERSION=156.0.8078.80
 CHROMIUM_SHA256=5b1a1f3bfdf4fc559db4eddfb4492b72ffcec7ae1a52b30f8b172230788f5740
 TARBALL="$ROOT/chromium-$CHROMIUM_VERSION.tar.xz"
 SRC="$ROOT/download/chromium/src"
+# WolfWeb's changes to Chromium (build/cef/patches/*.patch, made with `diff -ruN a b` against this Chromium version),
+# applied to the unpacked source before the build files are generated. Beside this script by default.
+PATCH_DIR="${WOLFWEB_CEF_PATCHES:-$(cd "$(dirname "$0")" && pwd)/patches}"
+# WolfWeb's logo images (resources/brand), put in place of Chromium's before the build (brand()). Beside this script
+# when it's been copied into a build folder (brand/), otherwise in the repository.
+here="$(cd "$(dirname "$0")" && pwd)"
+if [ -d "$here/brand" ]; then BRAND_DIR="$here/brand"; else BRAND_DIR="$here/../../resources/brand"; fi
+BRAND_DIR="${WOLFWEB_BRAND_DIR:-$BRAND_DIR}"
 # automate-git.py get_build_directory_name(): Release + _GN_x64 for --x64-build.
 OUT_DIR=out/Release_GN_x64
 # automate-git.py: --build-target=cefsimple, plus chrome_sandbox on Linux.
@@ -62,6 +71,58 @@ download() {
   "${A[@]}" --no-build --no-distrib --chromium-archive="$TARBALL" --chromium-archive-sha256="$CHROMIUM_SHA256"
 }
 
+apply_patches() {
+  local p
+  for p in "$PATCH_DIR"/*.patch; do
+    [ -e "$p" ] || continue
+    # Already in (a re-run on the same tree): leave it.
+    if (cd "$SRC" && patch -p1 -R --dry-run -s -f < "$p" > /dev/null 2>&1); then
+      echo "already applied: $(basename "$p")"
+      continue
+    fi
+    (cd "$SRC" && patch -p1 --forward -s < "$p")
+    echo "applied: $(basename "$p")"
+  done
+}
+
+brand() {
+  # Chromium's own window code draws its product logo from these files (ResourceBundle images, which WolfWeb's
+  # run-time replacement in src/branding.rs never sees), so WolfWeb's build swaps them for the wolf: every
+  # chrome/app/theme/**/chromium/**/product_logo_<N>.png for wolf-<pixels>.png, and the "Chromium" wordmark
+  # (product_logo_name_22[_white].png) for WolfWeb's. Matched by actual pixel size; a size WolfWeb has no image
+  # for stops the build rather than leaving Chromium's logo in.
+  python3 - "$SRC/chrome/app/theme" "$BRAND_DIR" <<'PY'
+import pathlib, shutil, struct, sys
+
+theme, brand = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
+
+def size(path):
+    head = path.read_bytes()[:24]
+    if head[:8] != b"\x89PNG\r\n\x1a\n":
+        return None
+    return struct.unpack(">II", head[16:24])
+
+wolf = {size(p): p for p in brand.glob("wolf-*.png")}
+wordmark = {(kind, size(p)): p for kind in ("dark", "white") for p in brand.glob(f"wordmark-{kind}-*.png")}
+done = 0
+for target in sorted(theme.rglob("product_logo*.png")):
+    if "chromium" not in target.relative_to(theme).parts:
+        continue
+    name, dims = target.name, size(target)
+    if name.startswith("product_logo_name_22"):
+        source = wordmark.get(("white" if name.endswith("_white.png") else "dark", dims))
+    elif name.endswith("_mono.png"):
+        continue  # a one-colour shape for monochrome UI, not the coloured logo
+    else:
+        source = wolf.get(dims)
+    if source is None:
+        sys.exit(f"no WolfWeb image {dims[0]}x{dims[1]} for {target.relative_to(theme)}")
+    shutil.copyfile(source, target)
+    done += 1
+print(f"WolfWeb logo in place of Chromium's: {done} files")
+PY
+}
+
 deps() {
   # Chromium's own build dependencies, from this checkout so they match the version. Flags are from
   # src/build/install-build-deps.py (Chromium 156): no prompt, no debug symbols, no ARM toolchain or ChromeOS fonts.
@@ -88,6 +149,8 @@ case "${1:-}" in
     download
     ;;
   build)
+    apply_patches
+    brand
     deps
     gn_defines
     # --chromium-archive here too: automate-git.py only accepts a source tree that isn't a git checkout when it's told
@@ -99,6 +162,8 @@ case "${1:-}" in
     fetch_inputs
     download
     rm -f "$TARBALL" # extracted; the runner's disk is small
+    apply_patches
+    brand
     deps
     gn_defines
     export PATH="$ROOT/depot_tools:$PATH"

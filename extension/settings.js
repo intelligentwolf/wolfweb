@@ -1,6 +1,6 @@
 // WolfWeb settings: switches for WolfWeb's own features (stored in chrome.storage.local "features"; the background
 // worker, the status bar and gestures react to the change straight away).
-/* global WOLFWEB_FEATURES */
+/* global WOLFWEB_FEATURES, WOLFWEB_ENGINE */
 (() => {
   const statusEl = document.getElementById("status");
   const errorEl = document.getElementById("error");
@@ -20,6 +20,8 @@
       const on = s.getAttribute("aria-checked") !== "true";
       try {
         await WOLFWEB_FEATURES.set(s.dataset.feature, on);
+        // With the engine's built-in menu bar, the switch shows or hides it in every window at once.
+        if (s.dataset.feature === "menuBar" && (await WOLFWEB_ENGINE.nativeMenuBar())) await WOLFWEB_ENGINE.setMenuBar(on);
         await render();
         const name = document.getElementById(`l-${s.dataset.feature}`).textContent;
         statusEl.textContent = `${name} ${on ? "on" : "off"}.`;
@@ -75,5 +77,7 @@
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === "local" && (changes.features || changes.statusBarHidden)) render();
   });
+  // Find out whether the engine has the built-in menu bar before the switch is used.
+  WOLFWEB_ENGINE.check().catch((e) => console.error("WolfWeb engine check:", e));
   render();
 })();

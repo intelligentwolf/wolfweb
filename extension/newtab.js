@@ -62,9 +62,14 @@
     })
     .catch(() => (document.getElementById("dial-empty").hidden = false));
 
-  // Keep WolfWeb's menu bar and 📰 Daily button on the bookmarks bar (cheap when they're already there).
-  /* global WOLFWEB_MENUBAR */
-  WOLFWEB_MENUBAR.sync().catch(() => {});
+  // Check whether the engine has the built-in menu bar (and match it to the setting), then keep the bookmarks-bar
+  // menus and 📰 Daily button right — both cheap when nothing has changed. Not something the user did, so failures
+  // only go to the console; the menus stay as they were.
+  /* global WOLFWEB_MENUBAR, WOLFWEB_ENGINE */
+  WOLFWEB_ENGINE.check()
+    .catch((e) => console.error("WolfWeb engine check:", e))
+    .then(() => WOLFWEB_MENUBAR.sync())
+    .catch((e) => console.error("WolfWeb menu bar:", e));
 
   input.focus();
 })();

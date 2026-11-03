@@ -1,7 +1,8 @@
-// WolfWeb's menu bar: File, Edit, View, Bookmarks, Tools, Window, Help folders (and 📰 Daily) at the start of the
-// bookmarks bar. Items are chrome-extension://<WolfWeb>/do.html#… addresses that WolfWeb's Rust side runs instead of
-// navigating (src/menu.rs; commands: src/actions.rs chrome_command).
-/* global WOLFWEB_FEATURES */
+// WolfWeb's menu bar on the bookmarks bar: File, Edit, View, Bookmarks, Tools, Window, Help folders (and 📰 Daily)
+// at its start, for engines without the built-in menu bar (engine.js; with it, only the Daily button is put here).
+// Items are chrome-extension://<WolfWeb>/do.html#… addresses that WolfWeb's Rust side runs instead of navigating
+// (src/menu.rs; commands: src/actions.rs chrome_command).
+/* global WOLFWEB_FEATURES, WOLFWEB_ENGINE */
 // eslint-disable-next-line no-unused-vars
 const WOLFWEB_MENUBAR = (() => {
   const base = chrome.runtime.getURL("do.html");
@@ -69,15 +70,17 @@ const WOLFWEB_MENUBAR = (() => {
   /** Make the menus and/or the Daily button match the switches. Rebuilds both so their order stays right. */
   async function sync() {
     const f = await WOLFWEB_FEATURES.get();
-    const want = (f.menuBar ? MENUS.length : 0) + (f.dailyButton ? 1 : 0);
+    // The built-in menu bar replaces the bookmarks-bar menus (its own switch is the same "Menu bar" setting).
+    const menus = f.menuBar && !(await WOLFWEB_ENGINE.nativeMenuBar());
+    const want = (menus ? MENUS.length : 0) + (f.dailyButton ? 1 : 0);
     const { menuBarIds, menuBarShape } = await chrome.storage.local.get({ menuBarIds: [], menuBarShape: "" });
-    const shape = `${f.menuBar}-${f.dailyButton}-v2`;
+    const shape = `${menus}-${f.dailyButton}-v2`;
     if (menuBarIds.length === want && menuBarShape === shape && (want === 0 || (await ourItemsStillThere()))) return;
     await removeOurs();
     const parentId = await barId();
     const ids = [];
     let index = 0;
-    if (f.menuBar) {
+    if (menus) {
       for (const m of MENUS) {
         const folder = await chrome.bookmarks.create({ parentId, index: index++, title: m.title });
         ids.push(folder.id);

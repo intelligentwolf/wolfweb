@@ -1,6 +1,6 @@
 // WolfWeb extension service worker.
 /* global WOLFWEB_FEATURES, WOLFWEB_MENUBAR */
-importScripts("features.js", "menubar.js");
+importScripts("features.js", "engine.js", "menubar.js");
 
 // Menu bar and 📰 Daily button on the bookmarks bar, kept in step with WolfWeb settings.
 const syncMenuBar = () => WOLFWEB_MENUBAR.sync().catch((e) => console.error("WolfWeb menu bar:", e));
@@ -11,7 +11,7 @@ chrome.runtime.onInstalled.addListener(syncMenuBar);
 // menus are already right.
 syncMenuBar();
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === "local" && changes.features) syncMenuBar();
+  if (area === "local" && (changes.features || changes.engine)) syncMenuBar();
 });
 
 // First run: offer to bring bookmarks, history, passwords and extensions over from other browsers.

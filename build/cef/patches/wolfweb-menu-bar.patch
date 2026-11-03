@@ -1,0 +1,569 @@
+diff -ruN a/chrome/browser/ui/browser_ui_prefs.cc b/chrome/browser/ui/browser_ui_prefs.cc
+--- a/chrome/browser/ui/browser_ui_prefs.cc	2026-11-03 17:13:35.339128181 +0000
++++ b/chrome/browser/ui/browser_ui_prefs.cc	2026-11-03 17:16:54.105561881 +0000
+@@ -111,6 +111,11 @@
+ }
+ 
+ void RegisterBrowserUserPrefs(user_prefs::PrefRegistrySyncable* registry) {
++  // WolfWeb's menu bar on or off (WolfWebMenuBar::kPrefName,
++  // chrome/browser/ui/views/frame/wolfweb_menu_bar.h; WolfWeb's settings page
++  // sets it). On by default.
++  registry->RegisterBooleanPref("wolfweb.menu_bar", true);
++
+ #if BUILDFLAG(IS_ANDROID)
+   const uint32_t pref_registration_flags = PrefRegistry::NO_REGISTRATION_FLAGS;
+ #else
+diff -ruN a/chrome/browser/ui/BUILD.gn b/chrome/browser/ui/BUILD.gn
+--- a/chrome/browser/ui/BUILD.gn	2026-11-03 17:13:35.307331175 +0000
++++ b/chrome/browser/ui/BUILD.gn	2026-11-03 17:17:01.655992694 +0000
+@@ -3549,6 +3549,8 @@
+       "views/frame/horizontal_tab_strip_region_view.h",
+       "views/frame/vertical_tab_strip_region_view.cc",
+       "views/frame/vertical_tab_strip_region_view.h",
++      "views/frame/wolfweb_menu_bar.cc",
++      "views/frame/wolfweb_menu_bar.h",
+     ]
+ 
+     sources += get_target_outputs(":webui_name_variants")
+diff -ruN a/chrome/browser/ui/views/frame/browser_view.cc b/chrome/browser/ui/views/frame/browser_view.cc
+--- a/chrome/browser/ui/views/frame/browser_view.cc	2026-11-03 17:13:35.319127781 +0000
++++ b/chrome/browser/ui/views/frame/browser_view.cc	2026-11-03 17:31:21.341641032 +0000
+@@ -181,6 +181,7 @@
+ #include "chrome/browser/ui/views/frame/tab_modal_dialog_host.h"
+ #include "chrome/browser/ui/views/frame/tab_strip_region_view.h"
+ #include "chrome/browser/ui/views/frame/top_container_view.h"
++#include "chrome/browser/ui/views/frame/wolfweb_menu_bar.h"
+ #include "chrome/browser/ui/views/frame/top_controls_slide_controller.h"
+ #include "chrome/browser/ui/views/frame/vertical_tab_strip_background_blur_backdrop.h"
+ #include "chrome/browser/ui/views/frame/vertical_tab_strip_region_view.h"
+@@ -1305,6 +1306,18 @@
+   if (toolbar_ && IsToolbarVisible()) {
+     info.toolbar_preferred_height = toolbar_->GetPreferredSize().height();
+   }
++  // WolfWeb's menu bar row sits above the tab strip (or, with vertical tabs,
++  // the toolbar), inside the area the frame paints, so the frame must count it
++  // (OpaqueBrowserFrameView::GetTopAreaHeight). The layout leaves it out in
++  // fullscreen (BrowserViewTabbedLayoutImpl::DoPreLayoutComputations).
++  if (wolfweb_menu_bar_ && !IsFullscreen()) {
++    const int menu_bar_height = wolfweb_menu_bar_->GetPreferredSize().height();
++    if (info.tabstrip_preferred_height > 0) {
++      info.tabstrip_preferred_height += menu_bar_height;
++    } else {
++      info.toolbar_minimum_height += menu_bar_height;
++    }
++  }
+   return info;
+ }
+ 
+@@ -4776,6 +4789,18 @@
+   views::View::ConvertPointToTarget(parent(), this,
+                                     &point_in_browser_view_coords);
+ 
++  // WolfWeb's menu bar: the menu titles are buttons; the rest of the row moves
++  // the window, like the empty part of the tab strip (HTNOWHERE lets the frame
++  // try the window controls before falling back to HTCAPTION).
++  if (wolfweb_menu_bar_ && wolfweb_menu_bar_->GetVisible()) {
++    gfx::Point test_point(point);
++    if (ConvertedHitTest(parent(), wolfweb_menu_bar_, &test_point)) {
++      return wolfweb_menu_bar_->IsPositionInWindowCaption(test_point)
++                 ? HTNOWHERE
++                 : HTCLIENT;
++    }
++  }
++
+   // Check if the point is in the web_app_frame_toolbar_. Because this toolbar
+   // can entirely be within the window controls overlay area, this check needs
+   // to be done before the window controls overlay area check below.
+@@ -5197,12 +5222,20 @@
+   UpdateWindowControlsOverlayEnabled();
+   UpdateUnframedModeEnabled();
+ 
++#if !BUILDFLAG(IS_MAC)
++  // WolfWeb's menu bar, in normal windows only (macOS has the system menu bar).
++  if (GetIsNormalType()) {
++    wolfweb_menu_bar_ = AddChildView(std::make_unique<WolfWebMenuBar>(this));
++  }
++#endif
++
+   // TODO(crbug.com/40664862): Remove BrowserViewLayout dependence on
+   // Widget and move to the constructor.
+   BrowserViewLayoutViews layout_views;
+ 
+   // LINT.IfChange(BrowserViewLayoutViews)
+   layout_views.browser_view = this;
++  layout_views.wolfweb_menu_bar = wolfweb_menu_bar_;
+   layout_views.window_scrim = window_scrim_view_;
+   layout_views.side_panel_content_transition_scrim =
+       side_panel_content_transition_scrim_view_;
+diff -ruN a/chrome/browser/ui/views/frame/browser_view.h b/chrome/browser/ui/views/frame/browser_view.h
+--- a/chrome/browser/ui/views/frame/browser_view.h	2026-11-03 17:13:35.313127661 +0000
++++ b/chrome/browser/ui/views/frame/browser_view.h	2026-11-03 17:15:50.822264882 +0000
+@@ -96,6 +96,7 @@
+ class TabSearchBubbleHost;
+ class TabStrip;
+ class TabStripRegionView;
++class WolfWebMenuBar;
+ class ToolbarButtonProvider;
+ class ToolbarView;
+ class TopContainerView;
+@@ -1179,6 +1180,10 @@
+   // The view that contains the tabstrip, new tab button, and grab handle space.
+   raw_ptr<TabStripRegionView> horizontal_tab_strip_region_view_ = nullptr;
+ 
++  // WolfWeb's menu bar along the very top of normal windows (not on macOS,
++  // which has the system menu bar). Owned by the views hierarchy.
++  raw_ptr<WolfWebMenuBar> wolfweb_menu_bar_ = nullptr;
++
+   // The insertion index of the HorizontalTabStripRegionView in the BrowserView
+   // view tree. This is used to correctly reparent the tabstrip when exiting
+   // fullscreen mode. See BrowserView::ReparentTopContainerForEndOfImmersive.
+diff -ruN a/chrome/browser/ui/views/frame/layout/browser_view_layout.h b/chrome/browser/ui/views/frame/layout/browser_view_layout.h
+--- a/chrome/browser/ui/views/frame/layout/browser_view_layout.h	2026-11-03 17:13:35.326127921 +0000
++++ b/chrome/browser/ui/views/frame/layout/browser_view_layout.h	2026-11-03 17:15:50.824612927 +0000
+@@ -64,6 +64,8 @@
+   raw_ptr<views::View> side_panel_content_transition_scrim = nullptr;
+   raw_ptr<views::View> main_background_region = nullptr;
+   raw_ptr<views::View> main_shadow_overlay = nullptr;
++  // WolfWeb's menu bar (WolfWebMenuBar), in a row above everything else.
++  raw_ptr<views::View> wolfweb_menu_bar = nullptr;
+   raw_ptr<views::View> top_container = nullptr;
+   raw_ptr<WebAppFrameToolbarView> web_app_frame_toolbar = nullptr;
+   raw_ptr<views::Label> web_app_window_title = nullptr;
+diff -ruN a/chrome/browser/ui/views/frame/layout/browser_view_tabbed_layout_impl.cc b/chrome/browser/ui/views/frame/layout/browser_view_tabbed_layout_impl.cc
+--- a/chrome/browser/ui/views/frame/layout/browser_view_tabbed_layout_impl.cc	2026-11-03 17:13:35.333128060 +0000
++++ b/chrome/browser/ui/views/frame/layout/browser_view_tabbed_layout_impl.cc	2026-11-03 17:16:32.855061756 +0000
+@@ -214,6 +214,8 @@
+   VerticalTabStripAnimation vertical_tab_strip_animation;
+   SeparatorInfo separator_info;
+   SidePanelContentAnimation side_panel_content_animation;
++  // WolfWeb's menu bar row; empty when it isn't shown.
++  gfx::Rect wolfweb_menu_bar_bounds;
+ };
+ 
+ BrowserViewTabbedLayoutImpl::BrowserViewTabbedLayoutImpl(
+@@ -763,6 +765,12 @@
+     layout.AddChild(views().window_scrim, browser_params.visual_client_area);
+   }
+ 
++  // WolfWeb's menu bar (its row was reserved in DoPreLayoutComputations()).
++  if (IsParentedTo(views().wolfweb_menu_bar, views().browser_view)) {
++    const gfx::Rect& bounds = layout_data_->wolfweb_menu_bar_bounds;
++    layout.AddChild(views().wolfweb_menu_bar, bounds, !bounds.IsEmpty());
++  }
++
+   BrowserLayoutParams params = layout_data_->revised_params;
+   bool needs_exclusion = true;
+   const HorizontalLayout& horizontal_layout = layout_data_->horizontal_layout;
+@@ -1501,6 +1509,33 @@
+   layout_data_ = std::make_unique<TransientLayoutData>(params);
+   layout_data_->window_state = delegate().GetBrowserWindowState();
+   layout_data_->tab_strip_type = delegate().GetTabStripType();
++
++  // WolfWeb's menu bar takes a row along the very top, beside any frame
++  // controls (the window buttons); everything else is laid out below it. Not
++  // in fullscreen. The row is as tall as the menu bar asks (zero when it's
++  // switched off); SetTop() also shrinks the exclusion areas by that much, so
++  // taller window buttons still keep their space in the row below.
++  if (IsParentedTo(views().wolfweb_menu_bar, views().browser_view)) {
++    const bool fullscreen =
++        layout_data_->window_state == WindowState::kFullscreen ||
++        layout_data_->window_state == WindowState::kFullscreenWithToolbar;
++    const int height = views().wolfweb_menu_bar->GetPreferredSize().height();
++    if (!fullscreen && height > 0) {
++      BrowserLayoutParams& revised = layout_data_->revised_params;
++      gfx::Rect bounds = revised.visual_client_area;
++      bounds.Inset(gfx::Insets::TLBR(
++          0,
++          gfx::ToCeiledSize(revised.leading_exclusion.ContentWithPadding())
++              .width(),
++          0,
++          gfx::ToCeiledSize(revised.trailing_exclusion.ContentWithPadding())
++              .width()));
++      bounds.set_height(std::min(height, bounds.height()));
++      layout_data_->wolfweb_menu_bar_bounds = bounds;
++      revised.SetTop(bounds.bottom());
++    }
++  }
++
+   layout_data_->horizontal_layout =
+       CalculateHorizontalLayout(layout_data_->revised_params);
+   layout_data_->organizer_panel_animation = CalculateOrganizerPanelAnimation();
+diff -ruN a/chrome/browser/ui/views/frame/wolfweb_menu_bar.cc b/chrome/browser/ui/views/frame/wolfweb_menu_bar.cc
+--- a/chrome/browser/ui/views/frame/wolfweb_menu_bar.cc	1970-01-01 01:00:00.000000000 +0100
++++ b/chrome/browser/ui/views/frame/wolfweb_menu_bar.cc	2026-11-03 17:32:05.760160086 +0000
+@@ -0,0 +1,290 @@
++// Copyright 2026 IntelligentWolf Ltd. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#include "chrome/browser/ui/views/frame/wolfweb_menu_bar.h"
++
++#include <utility>
++
++#include "base/functional/bind.h"
++#include "chrome/app/chrome_command_ids.h"
++#include "chrome/browser/profiles/profile.h"
++#include "chrome/browser/ui/browser_commands.h"
++#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
++#include "chrome/browser/ui/color/chrome_color_id.h"
++#include "chrome/browser/ui/singleton_tabs.h"
++#include "chrome/browser/ui/views/frame/browser_view.h"
++#include "chrome/grit/theme_resources.h"
++#include "components/prefs/pref_service.h"
++#include "ui/base/accelerators/accelerator.h"
++#include "ui/base/metadata/metadata_impl_macros.h"
++#include "ui/base/models/image_model.h"
++#include "ui/base/resource/resource_bundle.h"
++#include "ui/base/mojom/menu_source_type.mojom.h"
++#include "ui/gfx/geometry/insets.h"
++#include "ui/gfx/geometry/size.h"
++#include "ui/menus/simple_menu_model.h"
++#include "ui/views/accessibility/view_accessibility.h"
++#include "ui/views/border.h"
++#include "ui/views/controls/button/menu_button.h"
++#include "ui/views/controls/button/menu_button_controller.h"
++#include "ui/views/controls/image_view.h"
++#include "ui/views/controls/menu/menu_runner.h"
++#include "ui/views/controls/menu/menu_types.h"
++#include "ui/views/layout/box_layout.h"
++#include "url/gurl.h"
++
++namespace {
++
++// The row's height and each title's side padding, in DIPs.
++constexpr int kMenuBarHeight = 28;
++constexpr int kTitlePadding = 8;
++// Space either side of the wolf logo at the start of the row.
++constexpr int kLogoLeadingPadding = 10;
++constexpr int kLogoTrailingPadding = 4;
++
++// Ids for items that open a page rather than run a Chrome command; above every
++// IDC_ value (chrome/app/chrome_command_ids.h).
++constexpr int kFirstUrlCommand = 900000;
++
++// WolfWeb's built-in extension (its fixed key in WolfWeb's
++// extension/manifest.json; src/extension.rs ID).
++constexpr char kWolfWebPages[] =
++    "chrome-extension://fhmfanjkjkjnbognbfdiegdineklmkjm/";
++
++}  // namespace
++
++struct WolfWebMenuBar::Menu {
++  std::unique_ptr<ui::SimpleMenuModel> model;
++  raw_ptr<views::MenuButton> button = nullptr;
++  std::unique_ptr<views::MenuButtonController::PressedLock> pressed_lock;
++};
++
++WolfWebMenuBar::WolfWebMenuBar(BrowserView* browser_view)
++    : browser_view_(browser_view) {
++  auto* layout = SetLayoutManager(std::make_unique<views::BoxLayout>(
++      views::BoxLayout::Orientation::kHorizontal));
++  layout->set_cross_axis_alignment(
++      views::BoxLayout::CrossAxisAlignment::kCenter);
++
++  // The wolf at the start of the row. IDR_PRODUCT_LOGO_16 is the product logo
++  // at 16 DIPs (chrome/app/theme/theme_resources.grd), which WolfWeb replaces
++  // with its wolf at run time (src/branding.rs), loaded the way
++  // tab_icon_view.cc loads it. Decorative: the row's window title says
++  // WolfWeb, so screen readers skip it, and it drags the window like the rest
++  // of the row (IsPositionInWindowCaption).
++  auto logo = std::make_unique<views::ImageView>(ui::ImageModel::FromImageSkia(
++      *ui::ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
++          IDR_PRODUCT_LOGO_16)));
++  logo->SetBorder(views::CreateEmptyBorder(
++      gfx::Insets::TLBR(0, kLogoLeadingPadding, 0, kLogoTrailingPadding)));
++  logo->GetViewAccessibility().SetIsIgnored(true);
++  logo_ = AddChildView(std::move(logo));
++
++  BuildMenus();
++
++  pref_registrar_.Init(browser_view_->browser()->GetProfile()->GetPrefs());
++  pref_registrar_.Add(kPrefName,
++                      base::BindRepeating(&WolfWebMenuBar::OnPrefChanged,
++                                          base::Unretained(this)));
++}
++
++WolfWebMenuBar::~WolfWebMenuBar() = default;
++
++void WolfWebMenuBar::BuildMenus() {
++  // One menu: its title, then items. An item is a Chrome command (IDC_*), a
++  // WolfWeb page or a web address; a null title is a separator.
++  struct Item {
++    const char16_t* title;
++    int command = 0;
++    const char* url = nullptr;  // a WolfWeb page if it has no scheme
++  };
++  struct MenuSpec {
++    const char16_t* title;
++    std::vector<Item> items;
++  };
++  // The same menus as WolfWeb's bookmarks-bar menus (extension/menubar.js).
++  const std::vector<MenuSpec> specs = {
++      {u"File",
++       {{u"New tab", IDC_NEW_TAB},
++        {u"New window", IDC_NEW_WINDOW},
++        {u"New private window", IDC_NEW_INCOGNITO_WINDOW},
++        {nullptr},
++        {u"Open file…", IDC_OPEN_FILE},
++        {u"Save page as…", IDC_SAVE_PAGE},
++        {u"Print…", IDC_PRINT},
++        {nullptr},
++        {u"Close tab", IDC_CLOSE_TAB},
++        {u"Close window", IDC_CLOSE_WINDOW},
++        {nullptr},
++        {u"Quit WolfWeb", IDC_EXIT}}},
++      {u"Edit",
++       {{u"Cut", IDC_CUT},
++        {u"Copy", IDC_COPY},
++        {u"Paste", IDC_PASTE},
++        {nullptr},
++        {u"Find…", IDC_FIND}}},
++      {u"View",
++       {{u"Zoom in", IDC_ZOOM_PLUS},
++        {u"Zoom out", IDC_ZOOM_MINUS},
++        {u"Actual size", IDC_ZOOM_NORMAL},
++        {nullptr},
++        {u"Full screen", IDC_FULLSCREEN},
++        {u"Vertical tabs on/off", IDC_TOGGLE_VERTICAL_TABS},
++        {u"Split view (tile tabs)", IDC_NEW_SPLIT_TAB},
++        {nullptr},
++        {u"Reload", IDC_RELOAD},
++        {u"View page source", IDC_VIEW_SOURCE}}},
++      {u"Bookmarks",
++       {{u"Bookmark this tab", IDC_BOOKMARK_THIS_TAB},
++        {u"Bookmark manager", IDC_SHOW_BOOKMARK_MANAGER},
++        {nullptr},
++        {u"Bring your bookmarks from another browser", 0, "import.html"}}},
++      {u"Tools",
++       {{u"Your newspaper", 0, "daily.html"},
++        {u"Downloads", IDC_SHOW_DOWNLOADS},
++        {u"History", IDC_SHOW_HISTORY},
++        {u"Passwords", IDC_SHOW_PASSWORD_MANAGER},
++        {nullptr},
++        {u"Extensions", IDC_MANAGE_EXTENSIONS},
++        {u"Get extensions (Chrome Web Store)", 0,
++         "https://chromewebstore.google.com/category/extensions"},
++        {u"Command chains", 0, "chains.html"},
++        {nullptr},
++        {u"Task manager", IDC_TASK_MANAGER},
++        {u"Developer tools", IDC_DEV_TOOLS},
++        {u"Clear browsing data…", IDC_CLEAR_BROWSING_DATA},
++        {nullptr},
++        {u"WolfWeb settings", 0, "settings.html"},
++        {u"All settings", IDC_OPTIONS}}},
++      {u"Window",
++       {{u"Next tab", IDC_SELECT_NEXT_TAB},
++        {u"Previous tab", IDC_SELECT_PREVIOUS_TAB},
++        {u"Duplicate tab", IDC_DUPLICATE_TAB},
++        {u"Pin or unpin tab", IDC_PIN_TARGET_TAB},
++        {u"Reopen closed tab", IDC_RESTORE_TAB},
++        {u"Search open tabs", IDC_TAB_SEARCH}}},
++      {u"Help",
++       {{u"WolfWeb on GitHub", 0, "https://github.com/intelligentwolf/wolfweb"},
++        {u"Get WolfMail", 0,
++         "https://github.com/intelligentwolf/wolfmail/releases"},
++        {u"Sponsor WolfWeb", 0, "https://github.com/sponsors/intelligentwolf"},
++        {nullptr},
++        {u"About WolfWeb", IDC_ABOUT}}},
++  };
++
++  for (size_t i = 0; i < specs.size(); ++i) {
++    auto menu = std::make_unique<Menu>();
++    menu->model = std::make_unique<ui::SimpleMenuModel>(this);
++    for (const Item& item : specs[i].items) {
++      if (!item.title) {
++        menu->model->AddSeparator(ui::NORMAL_SEPARATOR);
++      } else if (item.url) {
++        const std::string url(item.url);
++        urls_.push_back(url.find("://") == std::string::npos
++                            ? std::string(kWolfWebPages) + url
++                            : url);
++        menu->model->AddItem(
++            kFirstUrlCommand + static_cast<int>(urls_.size()) - 1, item.title);
++      } else {
++        menu->model->AddItem(item.command, item.title);
++      }
++    }
++    auto button = std::make_unique<views::MenuButton>(
++        base::BindRepeating(&WolfWebMenuBar::ShowMenu, base::Unretained(this),
++                            i),
++        specs[i].title);
++    button->SetBorder(views::CreateEmptyBorder(
++        gfx::Insets::VH(0, kTitlePadding)));
++    button->SetEnabledTextColors(kColorTabForegroundInactiveFrameActive);
++    menu->button = AddChildView(std::move(button));
++    menus_.push_back(std::move(menu));
++  }
++}
++
++void WolfWebMenuBar::ShowMenu(size_t index) {
++  Menu& menu = *menus_[index];
++  menu.pressed_lock = menu.button->button_controller()->TakeLock();
++  menu_runner_ = std::make_unique<views::MenuRunner>(
++      menu.model.get(), views::MenuRunner::NO_FLAGS,
++      base::BindRepeating(
++          [](WolfWebMenuBar* bar, size_t i) {
++            bar->menus_[i]->pressed_lock.reset();
++          },
++          base::Unretained(this), index));
++  menu_runner_->RunMenuAt(GetWidget(), menu.button->button_controller(),
++                          menu.button->GetBoundsInScreen(),
++                          views::MenuAnchorPosition::kTopLeft,
++                          ui::mojom::MenuSourceType::kNone);
++  if (!menu_runner_->IsRunning()) {
++    menu.pressed_lock.reset();
++  }
++}
++
++bool WolfWebMenuBar::IsWanted() const {
++  return browser_view_->browser()->GetProfile()->GetPrefs()->GetBoolean(
++      kPrefName);
++}
++
++void WolfWebMenuBar::OnPrefChanged() {
++  PreferredSizeChanged();
++  browser_view_->InvalidateLayout();
++}
++
++gfx::Size WolfWebMenuBar::CalculatePreferredSize(
++    const views::SizeBounds& available_size) const {
++  // Zero height when switched off: the layout then gives the row no space.
++  if (!IsWanted()) {
++    return gfx::Size();
++  }
++  int width = logo_->GetPreferredSize().width();
++  for (const auto& menu : menus_) {
++    width += menu->button->GetPreferredSize().width();
++  }
++  return gfx::Size(width, kMenuBarHeight);
++}
++
++bool WolfWebMenuBar::IsPositionInWindowCaption(const gfx::Point& point) {
++  for (const auto& menu : menus_) {
++    gfx::Point in_button = point;
++    views::View::ConvertPointToTarget(this, menu->button, &in_button);
++    if (menu->button->HitTestPoint(in_button)) {
++      return false;
++    }
++  }
++  return true;
++}
++
++bool WolfWebMenuBar::IsCommandIdEnabled(int command_id) const {
++  if (command_id >= kFirstUrlCommand) {
++    return true;
++  }
++  return chrome::IsCommandEnabled(browser_view_->browser(), command_id);
++}
++
++bool WolfWebMenuBar::GetAcceleratorForCommandId(
++    int command_id,
++    ui::Accelerator* accelerator) const {
++  if (command_id >= kFirstUrlCommand) {
++    return false;
++  }
++  return browser_view_->GetAccelerator(command_id, accelerator);
++}
++
++void WolfWebMenuBar::ExecuteCommand(int command_id, int event_flags) {
++  if (command_id >= kFirstUrlCommand) {
++    const size_t index = static_cast<size_t>(command_id - kFirstUrlCommand);
++    if (index < urls_.size()) {
++      OpenUrl(GURL(urls_[index]));
++    }
++    return;
++  }
++  chrome::ExecuteCommand(browser_view_->browser(), command_id);
++}
++
++void WolfWebMenuBar::OpenUrl(const GURL& url) {
++  ShowSingletonTabOverwritingNTP(browser_view_->browser(), url);
++}
++
++BEGIN_METADATA(WolfWebMenuBar)
++END_METADATA
+diff -ruN a/chrome/browser/ui/views/frame/wolfweb_menu_bar.h b/chrome/browser/ui/views/frame/wolfweb_menu_bar.h
+--- a/chrome/browser/ui/views/frame/wolfweb_menu_bar.h	1970-01-01 01:00:00.000000000 +0100
++++ b/chrome/browser/ui/views/frame/wolfweb_menu_bar.h	2026-11-03 17:32:25.146573917 +0000
+@@ -0,0 +1,81 @@
++// Copyright 2026 IntelligentWolf Ltd. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#ifndef CHROME_BROWSER_UI_VIEWS_FRAME_WOLFWEB_MENU_BAR_H_
++#define CHROME_BROWSER_UI_VIEWS_FRAME_WOLFWEB_MENU_BAR_H_
++
++#include <memory>
++#include <string>
++#include <vector>
++
++#include "base/memory/raw_ptr.h"
++#include "components/prefs/pref_change_registrar.h"
++#include "ui/base/metadata/metadata_header_macros.h"
++#include "ui/menus/simple_menu_model.h"
++#include "ui/views/view.h"
++
++class BrowserView;
++class GURL;
++
++namespace views {
++class ImageView;
++class MenuButton;
++class MenuRunner;
++}  // namespace views
++
++// WolfWeb's menu bar: the wolf logo, then File, Edit, View, Bookmarks, Tools,
++// Window and Help as plain text menus, along the very top of a normal browser
++// window, above the tab strip (BrowserViewTabbedLayoutImpl reserves the row).
++// The items run Chrome's own commands (chrome::ExecuteCommand) or open
++// WolfWeb's pages.
++// Shown while the "wolfweb.menu_bar" profile pref is true; not built on macOS,
++// which has the system menu bar.
++class WolfWebMenuBar : public views::View,
++                       public ui::SimpleMenuModel::Delegate {
++  METADATA_HEADER(WolfWebMenuBar, views::View)
++
++ public:
++  // The profile pref that shows or hides the menu bar (registered, under the
++  // same name, by RegisterBrowserUserPrefs in browser_ui_prefs.cc; WolfWeb's
++  // settings page sets it).
++  static constexpr char kPrefName[] = "wolfweb.menu_bar";
++
++  explicit WolfWebMenuBar(BrowserView* browser_view);
++  WolfWebMenuBar(const WolfWebMenuBar&) = delete;
++  WolfWebMenuBar& operator=(const WolfWebMenuBar&) = delete;
++  ~WolfWebMenuBar() override;
++
++  // True where the window can be dragged: anywhere in the row except the menu
++  // titles themselves. `point` is in this view's coordinates.
++  bool IsPositionInWindowCaption(const gfx::Point& point);
++
++  // views::View:
++  gfx::Size CalculatePreferredSize(
++      const views::SizeBounds& available_size) const override;
++
++  // ui::SimpleMenuModel::Delegate:
++  bool IsCommandIdEnabled(int command_id) const override;
++  bool GetAcceleratorForCommandId(int command_id,
++                                  ui::Accelerator* accelerator) const override;
++  void ExecuteCommand(int command_id, int event_flags) override;
++
++ private:
++  struct Menu;
++
++  void BuildMenus();
++  void ShowMenu(size_t index);
++  void OnPrefChanged();
++  bool IsWanted() const;
++  void OpenUrl(const GURL& url);
++
++  raw_ptr<BrowserView> browser_view_;
++  raw_ptr<views::ImageView> logo_ = nullptr;
++  std::vector<std::unique_ptr<Menu>> menus_;
++  // Our own command ids (pages and web links) and where they go.
++  std::vector<std::string> urls_;
++  std::unique_ptr<views::MenuRunner> menu_runner_;
++  PrefChangeRegistrar pref_registrar_;
++};
++
++#endif  // CHROME_BROWSER_UI_VIEWS_FRAME_WOLFWEB_MENU_BAR_H_

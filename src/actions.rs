@@ -1,4 +1,5 @@
-//! API actions besides import: Chromium window commands for the focused tab, and starting WolfMail.
+//! API actions besides import: Chromium window commands for the focused tab, WolfWeb's own engine features (the
+//! native menu bar), and starting WolfWeb's partner app WolfMail.
 
 use crate::scheme::{param, Params, Reply};
 use cef::*;
@@ -78,6 +79,29 @@ pub fn api(cmd: &str, params: &Params) -> Reply {
                 Err(e) => Reply::error(409, e),
             }
         }
+        "engine/features" => {
+            let Some(context) = profile_context() else {
+                return Reply::error(409, "Open a WolfWeb window first.");
+            };
+            Reply::json(&json!({ "ok": true, "nativeMenuBar": has_native_menu_bar(&context) }))
+        }
+        "menu-bar/set" => {
+            let on = param(params, "on") == Some("1");
+            let Some(context) = profile_context() else {
+                return Reply::error(409, "Open a WolfWeb window first.");
+            };
+            if !has_native_menu_bar(&context) {
+                return Reply::error(409, "This WolfWeb's engine has no built-in menu bar.");
+            }
+            let Some(value) = crate::defaults::bool_value(on) else {
+                return Reply::error(500, "Couldn't make the setting.");
+            };
+            if crate::defaults::set_preference(&context, MENU_BAR_PREF, value) {
+                Reply::json(&json!({ "ok": true }))
+            } else {
+                Reply::error(500, "WolfWeb couldn't change the menu bar setting.")
+            }
+        }
         // Blocking thread.
         "default-browser/status" => match crate::default_browser::is_default() {
             Ok(is_default) => Reply::json(&json!({ "ok": true, "isDefault": is_default })),
@@ -93,6 +117,21 @@ pub fn api(cmd: &str, params: &Params) -> Reply {
         },
         _ => Reply::error(404, "Unknown request"),
     }
+}
+
+/// The profile preference WolfWeb's own engine adds for its menu bar (build/cef/patches/wolfweb-menu-bar.patch:
+/// WolfWebMenuBar::kPrefName, registered in chrome/browser/ui/browser_ui_prefs.cc RegisterBrowserUserPrefs).
+pub const MENU_BAR_PREF: &str = "wolfweb.menu_bar";
+
+/// The profile's request context, from any open browser (it's initialized by then; cef_browser.h GetRequestContext).
+fn profile_context() -> Option<RequestContext> {
+    crate::tabs::focused_browser().and_then(|b| b.host()).and_then(|h| h.request_context())
+}
+
+/// Does this engine have WolfWeb's built-in menu bar? Only an engine built with the patch registers its preference;
+/// the standard CEF build doesn't (then the extension's bookmarks-bar menus stand in).
+fn has_native_menu_bar(context: &RequestContext) -> bool {
+    context.has_preference(Some(&CefString::from(MENU_BAR_PREF))) != 0
 }
 
 /// Start WolfMail where its installers put it.
