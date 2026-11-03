@@ -18,20 +18,29 @@ thread_local! {
     static SAVE_PENDING: Cell<bool> = const { Cell::new(false) };
 }
 
-/// At startup: open what was asked for on the command line, else the last session, else a new-tab window.
-pub fn restore_or_open(urls: Vec<String>) {
+/// At startup: open what was asked for on the command line; otherwise follow the user's "On startup" choice
+/// (startup.rs) — the last session's windows and/or their startup pages — and open a window on the home page
+/// (the new-tab page) when that leaves nothing to show.
+pub fn restore_or_open(urls: Vec<String>, choice: &crate::startup::Choice) {
     if !urls.is_empty() {
         crate::tabs::open_window_with_tabs(urls);
         return;
     }
-    let saved = load().unwrap_or_default();
-    if saved.windows.is_empty() {
-        crate::tabs::open_window_with_tabs(Vec::new());
-        return;
+    let mut opened = false;
+    if choice.restores_session() {
+        // One window at a time: the tabs of a window are requested from that window's first browser.
+        for w in load().unwrap_or_default().windows {
+            crate::tabs::open_window_with_tabs(w.tabs);
+            opened = true;
+        }
     }
-    // One window at a time: the tabs of a window are requested from that window's first browser.
-    for w in saved.windows {
-        crate::tabs::open_window_with_tabs(w.tabs);
+    let pages = choice.pages();
+    if !pages.is_empty() {
+        crate::tabs::open_window_with_tabs(pages);
+        opened = true;
+    }
+    if !opened {
+        crate::tabs::open_window_with_tabs(Vec::new());
     }
 }
 

@@ -130,6 +130,8 @@ wrap_browser_process_handler! {
 struct Startup {
     /// Kept alive until its initialization callback has run.
     shared_context: std::cell::RefCell<Option<RequestContext>>,
+    /// The user's startup choice (startup.rs), until it's been put back after the first window.
+    choice: std::cell::RefCell<Option<crate::startup::Choice>>,
     app_ready: std::cell::Cell<bool>,
     context_ready: std::cell::Cell<bool>,
     done: std::cell::Cell<bool>,
@@ -139,6 +141,7 @@ thread_local! {
     static STARTUP: Startup = const {
         Startup {
             shared_context: std::cell::RefCell::new(None),
+            choice: std::cell::RefCell::new(None),
             app_ready: std::cell::Cell::new(false),
             context_ready: std::cell::Cell::new(false),
             done: std::cell::Cell::new(false),
@@ -152,7 +155,17 @@ fn maybe_open_first_windows() {
         return;
     }
     let urls = command_line_get_global().map(|cl| urls_from_command_line(&cl)).unwrap_or_default();
-    crate::session::restore_or_open(urls);
+    let choice = STARTUP.with(|s| s.choice.borrow().clone()).unwrap_or_default();
+    crate::session::restore_or_open(urls, &choice);
+}
+
+/// The first window exists (tabs.rs on_browser_created): Chromium has passed its own startup handling, so the
+/// user's startup choice goes back into Settings (startup.rs). Does nothing after the first time.
+pub fn after_first_browser() {
+    let pending = STARTUP.with(|s| s.choice.borrow_mut().take().map(|c| (c, s.shared_context.borrow().clone())));
+    if let Some((choice, Some(context))) = pending {
+        crate::startup::give_back(&context, &choice);
+    }
 }
 
 wrap_request_context_handler! {
@@ -164,25 +177,10 @@ wrap_request_context_handler! {
                 // cef_request_context.h:337-345 — a non-mode variant applies |user_color| in the current
                 // (system) light/dark mode.
                 context.set_chrome_color_scheme(ColorVariant::TONAL_SPOT, BRAND_ARGB);
-                // WolfWeb restores windows itself (session.rs). Chromium's own startup restore runs when the first
-                // browser is created and reopened every window ever left open, next to ours (observed 2026-11-03),
-                // so it's set to "open the new-tab page": chromium chrome/browser/prefs/session_startup_pref.h:54
-                // kPrefValueNewTab = 5 (pref "session.restore_on_startup").
-                if let Some(mut value) = value_create() {
-                    value.set_int(5);
-                    // Non-empty on purpose: cef-rs passes an empty CefString as a null pointer
-                    // (cef-rs cef/src/string.rs:538-542) and CEF's C wrapper then rejects the call without
-                    // trying (observed: every set_preference returned 0 with an empty error).
-                    let mut error = CefString::from(" ");
-                    let ok = context.set_preference(
-                        Some(&CefString::from("session.restore_on_startup")),
-                        Some(&mut value),
-                        Some(&mut error),
-                    );
-                    if ok == 0 {
-                        eprintln!("wolfweb: couldn't switch off Chromium's startup restore:{error}");
-                    }
-                }
+                // WolfWeb opens the startup windows itself, following the user's "On startup" choice; Chromium's
+                // own handling of it is held off for this start (startup.rs).
+                let choice = crate::startup::take(context);
+                STARTUP.with(|s| *s.choice.borrow_mut() = Some(choice));
                 crate::defaults::apply_once(context);
             }
             STARTUP.with(|s| s.context_ready.set(true));

@@ -163,6 +163,7 @@ pub fn on_browser_created(browser: &Browser) {
             request_tabs(browser, rest);
         }
     }
+    crate::app::after_first_browser();
     pump();
 }
 

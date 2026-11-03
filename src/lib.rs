@@ -21,6 +21,7 @@ pub mod mac;
 mod profile;
 mod scheme;
 mod session;
+mod startup;
 mod tabs;
 mod util;
 mod views;

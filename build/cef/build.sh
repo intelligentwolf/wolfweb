@@ -86,15 +86,17 @@ apply_patches() {
 }
 
 brand() {
-  # Chromium's own window code draws its product logo from these files (ResourceBundle images, which WolfWeb's
-  # run-time replacement in src/branding.rs never sees), so WolfWeb's build swaps them for the wolf: every
-  # chrome/app/theme/**/chromium/**/product_logo_<N>.png for wolf-<pixels>.png, and the "Chromium" wordmark
-  # (product_logo_name_22[_white].png) for WolfWeb's. Matched by actual pixel size; a size WolfWeb has no image
-  # for stops the build rather than leaving Chromium's logo in.
-  python3 - "$SRC/chrome/app/theme" "$BRAND_DIR" <<'PY'
+  # Chromium's own window code draws its logos from these files (ResourceBundle images, which WolfWeb's run-time
+  # replacement in src/branding.rs never sees), so WolfWeb's build swaps them, matched by actual pixel size:
+  #   chrome/app/theme/**/chromium/**/product_logo_<N>.png  → wolf-<pixels>.png (window, taskbar, About)
+  #   chrome/app/theme/**/chromium/product_logo_name_22[_white].png → wordmark-{dark,white}-*.png
+  #   components/resources/**/chromium/favicon_product.png  → wolf-<pixels>.png (chrome:// tab icons)
+  #   components/resources/**/chromium/product_logo[_white].png → version-logo-{dark,white}-*.png (chrome://version)
+  # A size WolfWeb has no image for stops the build rather than leaving Chromium's logo in.
+  python3 - "$SRC" "$BRAND_DIR" <<'PY'
 import pathlib, shutil, struct, sys
 
-theme, brand = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
+src, brand = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
 
 def size(path):
     head = path.read_bytes()[:24]
@@ -102,23 +104,40 @@ def size(path):
         return None
     return struct.unpack(">II", head[16:24])
 
-wolf = {size(p): p for p in brand.glob("wolf-*.png")}
-wordmark = {(kind, size(p)): p for kind in ("dark", "white") for p in brand.glob(f"wordmark-{kind}-*.png")}
+def images(pattern):
+    return {size(p): p for p in brand.glob(pattern)}
+
+wolf = images("wolf-*.png")
+wordmark = {"dark": images("wordmark-dark-*.png"), "white": images("wordmark-white-*.png")}
+version = {"dark": images("version-logo-dark-*.png"), "white": images("version-logo-white-*.png")}
+
+def replacement(root, target):
+    name = target.name
+    if root == "chrome/app/theme":
+        if not name.startswith("product_logo") or name.endswith("_mono.png"):
+            return False  # _mono: a one-colour shape for monochrome UI, not the coloured logo
+        if name.startswith("product_logo_name_22"):
+            return wordmark["white" if name.endswith("_white.png") else "dark"].get(size(target))
+        return wolf.get(size(target))
+    if name == "favicon_product.png":
+        return wolf.get(size(target))
+    if name in ("product_logo.png", "product_logo_white.png"):
+        return version["white" if name.endswith("_white.png") else "dark"].get(size(target))
+    return False
+
 done = 0
-for target in sorted(theme.rglob("product_logo*.png")):
-    if "chromium" not in target.relative_to(theme).parts:
-        continue
-    name, dims = target.name, size(target)
-    if name.startswith("product_logo_name_22"):
-        source = wordmark.get(("white" if name.endswith("_white.png") else "dark", dims))
-    elif name.endswith("_mono.png"):
-        continue  # a one-colour shape for monochrome UI, not the coloured logo
-    else:
-        source = wolf.get(dims)
-    if source is None:
-        sys.exit(f"no WolfWeb image {dims[0]}x{dims[1]} for {target.relative_to(theme)}")
-    shutil.copyfile(source, target)
-    done += 1
+for root in ("chrome/app/theme", "components/resources"):
+    for target in sorted((src / root).rglob("*.png")):
+        if "chromium" not in target.relative_to(src / root).parts:
+            continue
+        source = replacement(root, target)
+        if source is False:
+            continue
+        if source is None:
+            dims = size(target)
+            sys.exit(f"no WolfWeb image {dims[0]}x{dims[1]} for {target.relative_to(src)}")
+        shutil.copyfile(source, target)
+        done += 1
 print(f"WolfWeb logo in place of Chromium's: {done} files")
 PY
 }

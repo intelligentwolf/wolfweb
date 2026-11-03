@@ -319,11 +319,18 @@ mod tests {
     use super::rebrand;
 
     /// Every logo in this CEF build's packs is found by fingerprint, and replaced by an image of the same size.
-    /// Skipped when the runtime hasn't been fetched.
+    /// Skipped when the runtime hasn't been fetched. WolfWeb's own engine (build/cef/build.sh brand()) already
+    /// carries the wolf in its packs: then no Chromium logo may be left for the run-time replacement to find.
     #[test]
     fn logos_are_found_by_fingerprint() {
         let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("third_party/cef");
         if !dir.join("chrome_100_percent.pak").is_file() {
+            return;
+        }
+        let pak100 = std::fs::read(dir.join("chrome_100_percent.pak")).unwrap();
+        if pak100.windows(super::WOLF_16.len()).any(|w| w == super::WOLF_16) {
+            let left = super::scan(&dir.join("chrome_100_percent.pak"));
+            assert!(left.is_empty(), "Chromium logos left in WolfWeb's own engine: {}", left.len());
             return;
         }
         let p100 = super::scan(&dir.join("chrome_100_percent.pak"));
