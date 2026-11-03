@@ -1,0 +1,19 @@
+diff -ruN a/components/embedder_support/user_agent_utils.cc b/components/embedder_support/user_agent_utils.cc
+--- a/components/embedder_support/user_agent_utils.cc	2026-11-03 18:31:06.864094887 +0000
++++ b/components/embedder_support/user_agent_utils.cc	2026-11-03 18:31:06.881693735 +0000
+@@ -167,10 +167,11 @@
+   int major_version_number;
+   bool parse_result = base::StringToInt(major_version, &major_version_number);
+   DCHECK(parse_result);
+-  std::optional<std::string> brand;
+-#if !BUILDFLAG(CHROMIUM_BRANDING)
+-  brand = version_info::GetProductName();
+-#endif
++  // WolfWeb reports the "Google Chrome" brand next to "Chromium", as Google
++  // Chrome's own builds do (version_info::GetProductName() there): sites
++  // that check the brand list (sign-in pages, banks) otherwise refuse a
++  // Chromium-based browser as unsupported.
++  std::optional<std::string> brand = "Google Chrome";
+ 
+   std::string brand_version =
+       output_version_type == blink::UserAgentBrandVersionType::kFullVersion
