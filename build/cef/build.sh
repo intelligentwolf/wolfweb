@@ -88,7 +88,10 @@ case "${1:-}" in
   build)
     deps
     gn_defines
-    "${A[@]}" --no-update --force-build --minimal-distrib --client-distrib --build-target=cefsimple --with-pgo-profiles
+    # --chromium-archive here too: automate-git.py only accepts a source tree that isn't a git checkout when it's told
+    # the tree came from an archive (it's already unpacked, so nothing is extracted again).
+    "${A[@]}" --no-update --force-build --minimal-distrib --client-distrib --build-target=cefsimple --with-pgo-profiles \
+      --chromium-archive="$TARBALL" --chromium-archive-sha256="$CHROMIUM_SHA256"
     ;;
   ci-prepare)
     fetch_inputs
