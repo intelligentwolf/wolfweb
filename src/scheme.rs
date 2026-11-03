@@ -310,7 +310,7 @@ fn start_pdf(params: &Params, served: Arc<Mutex<Served>>, callback: Callback) {
     let path = unused_path(&dir, &title);
     let settings = PdfPrintSettings {
         print_background: 1,
-        prefer_css_page_size: 1, // the page's @page size (the newspaper asks for A3)
+        prefer_css_page_size: 1, // the page's @page size (the newspaper asks for A4)
         generate_tagged_pdf: 1,
         generate_document_outline: 1,
         ..Default::default()

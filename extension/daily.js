@@ -332,9 +332,9 @@
 
   // ── The printed edition ────────────────────────────────────────────────────────────────────────────────────
   // A broadsheet in print: page 1 is the front page (masthead, the lead story in full, six teasers taken from the
-  // sections in turn, and an index); the inside pages run every section in five columns. daily.css lays it out on
-  // A3 with the page number at the foot of each page.
-  const TEASER_WORDS = 60;
+  // sections in turn, and an index); the inside pages run every section in four columns. daily.css lays it out on
+  // A4 with the page number at the foot of each page.
+  const TEASER_WORDS = 45;
   const TEASERS = 6;
 
   function words(text, n) {
@@ -342,7 +342,7 @@
     return w.length <= n ? text : `${w.slice(0, n).join(" ")}…`;
   }
 
-  function printStory(s, { teaser = false, image = true } = {}) {
+  function printStory(s, { teaser = false, image = true, lead = false } = {}) {
     const art = el("article", teaser ? "p-teaser" : "p-story");
     if (image && s.image) {
       const img = el("img");
@@ -351,26 +351,31 @@
       img.addEventListener("error", () => img.remove());
       art.appendChild(img);
     }
-    art.appendChild(el("h3", "", s.headline));
+    // The headline, byline and first paragraph stay together (daily.css .p-head never breaks), so a headline is
+    // never left at the foot of a column; Chromium doesn't keep a heading with what follows on its own.
+    const head = el("div", "p-head");
+    head.appendChild(el("h3", "", s.headline));
     const by = [s.source, s.date ? new Date(s.date).toLocaleDateString(undefined, { day: "numeric", month: "short" }) : ""].filter(Boolean).join(" · ");
-    if (by) art.appendChild(el("p", "p-byline", by));
+    if (by) head.appendChild(el("p", "p-byline", by));
+    art.appendChild(head);
     const paras = s.paragraphs && s.paragraphs.length ? s.paragraphs : s.summary ? [s.summary] : [];
     if (teaser) {
-      if (paras.length) art.appendChild(el("p", "", words(paras.join(" "), TEASER_WORDS)));
+      if (paras.length) head.appendChild(el("p", "", words(paras.join(" "), TEASER_WORDS)));
       art.appendChild(el("p", "p-turn", `Continued inside: ${s.section}`));
     } else {
-      paras.forEach((t) => art.appendChild(el("p", "", t)));
+      // The lead's headline spans its columns on its own (daily.css), so its paragraphs all flow in the columns.
+      paras.forEach((t, i) => (i === 0 && !lead ? head : art).appendChild(el("p", "", t)));
       art.appendChild(el("p", "p-source", `Full story: ${s.link.replace(/^https?:\/\/(www\.)?/, "").slice(0, 70)}`));
     }
     return art;
   }
 
-  // The front page must be one sheet: A3's 420 mm less the 12 mm top and 14 mm bottom margins (daily.css @page),
+  // The front page must be one sheet: A4's 297 mm less the 10 mm top and 12 mm bottom margins (daily.css @page),
   // with 2 mm to spare for rounding. Measured off-screen at the printed width. Things give way gently, in order:
   // pictures on the second row of teasers, a shorter lead photo, the last row of teasers (whole, so the grid stays
   // even), then the lead's closing paragraphs.
-  const FRONT_HEIGHT_MM = 420 - 12 - 14 - 2;
-  const LEAD_PHOTO_MIN_MM = 70;
+  const FRONT_HEIGHT_MM = 297 - 10 - 12 - 2;
+  const LEAD_PHOTO_MIN_MM = 45;
 
   function fitFront(front) {
     const root = $("print-edition");
@@ -408,7 +413,7 @@
       foot.id = "print-foot";
       document.head.appendChild(foot);
     }
-    foot.textContent = `@page { @bottom-center { content: ${JSON.stringify(`${name} · ${dateText} · Page `)} counter(page) " of " counter(pages); font: 8pt sans-serif; color: #555; } }`;
+    foot.textContent = `@page { @bottom-center { content: ${JSON.stringify(`${name} · ${dateText} · Page `)} counter(page) " of " counter(pages); font: 7pt sans-serif; color: #555; } }`;
 
     // Front page.
     const front = el("section", "p-front");
@@ -420,7 +425,7 @@
     if (lead) {
       const leadBox = el("div", "p-lead");
       leadBox.appendChild(el("div", "p-kicker", lead.section));
-      leadBox.appendChild(printStory(lead));
+      leadBox.appendChild(printStory(lead, { lead: true }));
       front.appendChild(leadBox);
     }
     // Six teasers (two rows of three) for a full front page: each section's top story, then each one's next, and so on.
@@ -449,8 +454,14 @@
     edition.sections.forEach((sec) => {
       const stories = sec.stories.filter((st) => st !== lead);
       if (!stories.length) return;
-      inside.appendChild(el("h2", "p-section", sec.name));
-      stories.forEach((st, i) => inside.appendChild(printStory(st, { image: i === 0 })));
+      // Each section is its own block of columns, with its heading kept on the same page as the first story.
+      const block = el("section", "p-sec");
+      const cols = el("div", "p-cols");
+      stories.forEach((st, i) => cols.appendChild(printStory(st, { image: i === 0 })));
+      const top = el("div", "p-sec-top");
+      top.appendChild(el("h2", "p-section", sec.name));
+      block.append(top, cols);
+      inside.appendChild(block);
     });
     root.appendChild(inside);
   }
