@@ -74,15 +74,26 @@ fn snapshot() -> Session {
         if url.is_empty() {
             continue;
         }
-        // cef_window_handle_t is an integer on Linux but a pointer (HWND) on Windows.
-        #[allow(clippy::unnecessary_cast)]
-        let key = host.window_handle() as u64;
+        let key = window_key(&host);
         match windows.iter_mut().find(|(k, _)| *k == key) {
             Some((_, w)) => w.tabs.push(url),
             None => windows.push((key, SavedWindow { tabs: vec![url] })),
         }
     }
     Session { windows: windows.into_iter().map(|(_, w)| w).collect() }
+}
+
+/// A number identifying the tab's top-level window. cef_window_handle_t differs per platform (cef-dll-sys bindings):
+/// Linux `c_ulong`, macOS `*mut c_void`, Windows `struct HWND(pub *mut HWND__)`.
+fn window_key(host: &BrowserHost) -> u64 {
+    let handle = host.window_handle();
+    #[cfg(target_os = "windows")]
+    let key = handle.0 as usize as u64;
+    #[cfg(target_os = "macos")]
+    let key = handle as usize as u64;
+    #[cfg(target_os = "linux")]
+    let key = u64::from(handle); // c_ulong: u64 on 64-bit, u32 on 32-bit Linux
+    key
 }
 
 /// Incognito tabs use an off-the-record context that isn't the global one.

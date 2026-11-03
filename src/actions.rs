@@ -3,6 +3,7 @@
 use crate::scheme::{param, Params, Reply};
 use cef::*;
 use serde_json::json;
+#[cfg(any(target_os = "linux", target_os = "windows"))]
 use std::path::PathBuf;
 
 // Source: cef/include/cef_command_ids.h (CEF 156.0.15) — 88 IDC_NEW_SPLIT_TAB 34057, 89 IDC_TOGGLE_VERTICAL_TABS

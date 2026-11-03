@@ -70,7 +70,9 @@ fn copy_tree(src: &Path, dst: &Path) -> Result<()> {
     Ok(())
 }
 
-/// The CEF runtime files (not its headers, CMake files or wrapper sources).
+/// The CEF runtime files (not its headers, CMake files or wrapper sources). (macOS bundles copy the framework via
+/// cef-rs's bundler instead.)
+#[cfg(not(target_os = "macos"))]
 fn copy_cef_runtime(cef: &Path, out: &Path, skip_exe: bool) -> Result<()> {
     for entry in std::fs::read_dir(cef)? {
         let entry = entry?;
@@ -91,6 +93,7 @@ fn copy_cef_runtime(cef: &Path, out: &Path, skip_exe: bool) -> Result<()> {
     Ok(())
 }
 
+#[cfg(not(target_os = "macos"))]
 fn fresh(dir: &Path) -> Result<()> {
     if dir.exists() {
         std::fs::remove_dir_all(dir)?;
