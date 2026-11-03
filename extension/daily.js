@@ -164,6 +164,30 @@
     return { paragraphs, image: og ? httpUrl(og.getAttribute("content") || "") : null };
   }
 
+  // An article's text is only used when it's in the story's own language: a feed's English headline can point at a
+  // page in another language (a GitHub project written in Chinese, from Hacker News). chrome.i18n.detectLanguage is
+  // Chromium's built-in detector; codes are compared without their region ("zh-Hant" → "zh").
+  const baseLang = (code) => (code || "").toLowerCase().split("-")[0];
+  const readerLangs = new Set((navigator.languages || [navigator.language]).map(baseLang));
+
+  async function language(text) {
+    try {
+      const r = await chrome.i18n.detectLanguage(text);
+      const top = r && r.languages && r.languages[0];
+      return top && top.language !== "und" ? { lang: baseLang(top.language), reliable: !!r.isReliable } : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async function sameLanguage(story, paragraphs) {
+    const body = await language(paragraphs.join(" "));
+    if (!body) return true; // can't tell: keep the text
+    const head = await language(`${story.headline}. ${story.summary || ""}`);
+    if (head && head.reliable) return head.lang === body.lang;
+    return readerLangs.has(body.lang);
+  }
+
   /** Fill stories with their text, a few at a time. */
   async function addText(stories, leadLink) {
     let next = 0;
@@ -177,7 +201,9 @@
           const html = await fetchText(s.link, ctrl.signal);
           if (html) {
             const got = extract(html, s.link === leadLink ? LEAD_WORDS : STORY_WORDS);
-            if (got.paragraphs.join(" ").length > (s.summary || "").length) s.paragraphs = got.paragraphs;
+            if (got.paragraphs.join(" ").length > (s.summary || "").length && (await sameLanguage(s, got.paragraphs))) {
+              s.paragraphs = got.paragraphs;
+            }
             if (!s.image && got.image) s.image = got.image;
           }
         } catch {
