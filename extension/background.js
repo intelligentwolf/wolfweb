@@ -1,6 +1,10 @@
 // WolfWeb extension service worker.
-/* global WOLFWEB_FEATURES, WOLFWEB_MENUBAR */
-importScripts("features.js", "engine.js", "menubar.js");
+/* global WOLFWEB_FEATURES, WOLFWEB_MENUBAR, WOLFWEB_PINNED */
+importScripts("features.js", "engine.js", "menubar.js", "pinned.js");
+
+// Pinned tabs come back at every start (pinned.js). Listeners first: a service worker's must be added at once.
+WOLFWEB_PINNED.listen();
+WOLFWEB_PINNED.restore().catch((e) => console.error("WolfWeb pinned tabs:", e));
 
 // Menu bar and 📰 Daily button on the bookmarks bar, kept in step with WolfWeb settings.
 const syncMenuBar = () => WOLFWEB_MENUBAR.sync().catch((e) => console.error("WolfWeb menu bar:", e));

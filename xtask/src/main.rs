@@ -56,6 +56,39 @@ fn target_dir(root: &Path, release: bool) -> PathBuf {
 }
 
 /// Copy a directory tree (files and folders).
+/// The built-in extension, stamped per build so an updated WolfWeb runs its updated background worker:
+/// - its version becomes "<major>.<minor>.<days since 2026-01-01>.<minute of the day, UTC>" from the source
+///   manifest's major.minor (Chrome's manifest "version" is one to four dot-separated integers, each 0-65535 —
+///   developer.chrome.com/docs/extensions/reference/manifest/version; the days stay under that until the 2190s);
+/// - background.js is shipped as background-<version>.js. Registering a service worker whose script address is
+///   unchanged returns the existing registration without fetching the script (the Service Worker spec's Register
+///   algorithm), so Chromium kept running the first background.js it ever installed (observed: Version ID 0 in
+///   chrome://serviceworker-internals after several updates). A new address installs the new code.
+fn copy_extension(root: &Path, dst: &Path) -> Result<()> {
+    copy_tree(&root.join("extension"), dst)?;
+    let path = dst.join("manifest.json");
+    let text = std::fs::read_to_string(&path).context("extension/manifest.json")?;
+    let key = "\"version\": \"";
+    let start = text.find(key).context("no \"version\" in extension/manifest.json")? + key.len();
+    let end = start + text[start..].find('"').context("unterminated \"version\" in extension/manifest.json")?;
+    let mut parts = text[start..end].split('.');
+    let (major, minor) = (parts.next().unwrap_or("0"), parts.next().unwrap_or("0"));
+    let secs = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_secs();
+    // 2026-01-01T00:00:00Z = 1767225600 s after the Unix epoch.
+    let since = secs.checked_sub(1_767_225_600).context("the clock is before 2026")?;
+    let (days, minute) = (since / 86_400, (since % 86_400) / 60);
+    let version = format!("{major}.{minor}.{days}.{minute}");
+    let worker = format!("background-{version}.js");
+    let text = format!("{}{version}{}", &text[..start], &text[end..]);
+    let from = "\"service_worker\": \"background.js\"";
+    if !text.contains(from) {
+        bail!("extension/manifest.json has no {from}");
+    }
+    std::fs::write(&path, text.replacen(from, &format!("\"service_worker\": \"{worker}\""), 1))?;
+    std::fs::rename(dst.join("background.js"), dst.join(&worker)).context("extension/background.js")?;
+    Ok(())
+}
+
 fn copy_tree(src: &Path, dst: &Path) -> Result<()> {
     std::fs::create_dir_all(dst)?;
     for entry in std::fs::read_dir(src)? {
@@ -111,7 +144,7 @@ fn bundle(release: bool) -> Result<PathBuf> {
     fresh(&out)?;
     copy_cef_runtime(&cef, &out, false)?;
     std::fs::copy(target_dir(&root, release).join("wolfweb"), out.join("wolfweb"))?;
-    copy_tree(&root.join("extension"), &out.join("extension"))?;
+    copy_extension(&root, &out.join("extension"))?;
     std::fs::copy(root.join("resources/brand/wolf-256.png"), out.join("wolfweb.png"))?;
     Ok(out.join("wolfweb"))
 }
@@ -129,7 +162,7 @@ fn bundle(release: bool) -> Result<PathBuf> {
     std::fs::copy(cef.join("bootstrap.exe"), out.join("wolfweb.exe")).context("CEF's bootstrap.exe")?;
     std::fs::copy(root.join("resources/win/wolfweb.exe.manifest"), out.join("wolfweb.exe.manifest"))?;
     std::fs::copy(target_dir(&root, release).join("wolfweb.dll"), out.join("wolfweb.dll"))?;
-    copy_tree(&root.join("extension"), &out.join("extension"))?;
+    copy_extension(&root, &out.join("extension"))?;
     Ok(out.join("wolfweb.exe"))
 }
 
@@ -164,7 +197,7 @@ fn bundle(release: bool) -> Result<PathBuf> {
         info,
     )
     .map_err(|e| anyhow::anyhow!("{e:?}"))?;
-    copy_tree(&root.join("extension"), &app.join("Contents/Resources/extension"))?;
+    copy_extension(&root, &app.join("Contents/Resources/extension"))?;
     // Declare WolfWeb a handler for web addresses, so Launch Services lets it be the default browser
     // (src/default_browser.rs). plutil ships with macOS.
     let status = Command::new("plutil")
