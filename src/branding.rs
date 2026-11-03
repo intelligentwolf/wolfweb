@@ -106,12 +106,13 @@ wrap_resource_bundle_handler! {
 
 // ── Logos ──────────────────────────────────────────────────────────────────────────────────────────────────────
 //
-// Chromium's product logos are theme images with no stable name CEF can map (cef_id_for_pack_resource_name returns -1
-// for IDR_PRODUCT_LOGO_16/_32/_NAME_22 — observed), so their ids come from scanning this exact CEF build's packs
-// (CEF 156.0.15 / Chromium 156.0.8078.80, pinned by Cargo.toml `cef = "=156.3.0"`): every PNG in
-// chrome_100_percent.pak, chrome_200_percent.pak and resources.pak was compared pixel for pixel with Chromium's
-// logos from chrome/app/theme/{chromium,default_100_percent/chromium,default_200_percent/chromium} at tag
-// 156.0.8078.80. `scanned_ids_match_this_cef_build` re-checks them against third_party/cef.
+// Chromium's product logos are theme images with no name CEF can map (cef_id_for_pack_resource_name returns -1 for
+// IDR_PRODUCT_LOGO_16/_32/_NAME_22 — observed) and their numeric ids differ between platforms (the Windows build has
+// no 14307, which is IDR_PRODUCT_LOGO_32 on Linux — CI, 2026-11-03). So WolfWeb finds them by content: at the first
+// image request it reads CEF's packs and matches each entry's SHA-256 against Chromium's own logo files. Pack
+// entries are byte-for-byte the source PNGs (checked: chrome/app/theme/{chromium,default_100_percent/chromium,
+// default_200_percent/chromium}/*product_logo* at tag 156.0.8078.80 hash the same as the entries in
+// chrome_100_percent.pak / chrome_200_percent.pak / resources.pak), so the same table works on every platform.
 //
 // The logo inside the address bar's chip on chrome:// pages is a vector icon compiled into Chromium
 // (chrome/browser/ui/toolbar/chrome_location_bar_model_delegate.cc:197-201 omnibox::kChromeProductIcon) and can't
@@ -122,42 +123,138 @@ const WOLF_24: &[u8] = include_bytes!("../resources/brand/wolf-24.png");
 const WOLF_32: &[u8] = include_bytes!("../resources/brand/wolf-32.png");
 const WOLF_64: &[u8] = include_bytes!("../resources/brand/wolf-64.png");
 const WOLF_128: &[u8] = include_bytes!("../resources/brand/wolf-128.png");
-/// WebUI's Chromium logo SVG (resources.pak 51305 = IDR_WEBUI_IMAGES_CHROME_LOGO_DARK_SVG, found with
-/// cef_id_for_pack_resource_name; Chromium stores it gzip-compressed, so the replacement is gzipped too).
-const WOLF_SVG_GZ: &[u8] = include_bytes!("../resources/brand/wolf-logo.svg.gz");
+const WOLF_256: &[u8] = include_bytes!("../resources/brand/wolf-256.png");
 const WORDMARK_1X: &[u8] = include_bytes!("../resources/brand/wordmark-dark-1x.png");
 const WORDMARK_2X: &[u8] = include_bytes!("../resources/brand/wordmark-dark-2x.png");
 const WORDMARK_WHITE_1X: &[u8] = include_bytes!("../resources/brand/wordmark-white-1x.png");
 const WORDMARK_WHITE_2X: &[u8] = include_bytes!("../resources/brand/wordmark-white-2x.png");
+/// WebUI's Chromium logo SVG, stored gzip-compressed by Chromium, so the replacement is gzipped too. Found by name:
+/// IDR_WEBUI_IMAGES_CHROME_LOGO_DARK_SVG (cef_pack_resources.h).
+const WOLF_SVG_GZ: &[u8] = include_bytes!("../resources/brand/wolf-logo.svg.gz");
 
-/// Scale-independent images (resources.pak): 14187 16 px, 14188 24 px, 14189 64 px, 14190 128 px.
-fn unscaled_image(id: i32) -> Option<&'static [u8]> {
-    Some(match id {
-        14187 => WOLF_16,
-        14188 => WOLF_24,
-        14189 => WOLF_64,
-        14190 => WOLF_128,
-        51305 => WOLF_SVG_GZ,
-        _ => return scaled_image(id, false),
+/// SHA-256 of Chromium 156's logo files → WolfWeb's image of the same size.
+const LOGOS: &[(&str, &[u8])] = &[
+    // 16 px: chromium/product_logo_16.png, default_100_percent/chromium/{,linux/}product_logo_16.png, and the
+    // 200%-pack copy of the Linux one.
+    ("a393eac540413ebbc51ba033b96d6f87918d1039f1ec16cd8c0e6a57818f2ea1", WOLF_16),
+    ("32ea0cf8a4f67b8fde3225391201f72bb4ef117295b104961c68d0502a7142d8", WOLF_16),
+    ("fdbe4e892e67409252283e2eb1faa05a9be8131e4d2dbc1dcc0f5d14390be4e2", WOLF_16),
+    ("2c1d17921ced4b60a2cc6e1fd96aeb398e13547dab18537a61d3c5ad57895ccf", WOLF_16),
+    ("8a9918695448c5592ca69c103acd2a5c213240d82acef163afc9b0d92b6d280c", WOLF_16),
+    // 24 px (resources.pak).
+    ("7a431699c78af352352932f6dd4e04848b57990c0a5675a66695e1dd454cb592", WOLF_24),
+    // 32 px: default_100_percent/chromium/product_logo_32.png, default_200_percent/chromium/product_logo_16.png.
+    ("c29f2c754d619246062db49e4ba1c3b8e96fcce18ec4524f5ef371172af385ad", WOLF_32),
+    ("9fef85f58e6e4a2cdcbe8b0d3d8fe833547362ab1501ab700d745876fd830f4e", WOLF_32),
+    // 64 px: default_200_percent/chromium/product_logo_32.png, chromium/product_logo_64.png.
+    ("926700351f770f2ae5d1298c75aa269da1416d1511e90a1eed07a5ac5e27e85e", WOLF_64),
+    ("aa7f129dcfe02276ebd365781c6a0c3c8ab1ca41abf3408ca47e604e7fe12018", WOLF_64),
+    // 128 px, 256 px: chromium/product_logo_128.png, _256.png.
+    ("ea2d5a7c15ae1e03138d2bb227d3ed4684808c7de10a1443d776cde3ca3dcd9d", WOLF_128),
+    ("e14120fdefb8eb455f44eac572f34bda75c32c9404e5c3745d44793dae217331", WOLF_256),
+    // The "Chromium" wordmark (product_logo_name_22, _white) at 1× and 2×.
+    ("fd2ba439f3aad0b56b8228bc966f4f3c425a56f4c7c3e77b8a850fc7bfc93b24", WORDMARK_1X),
+    ("655d7d7e6d0b2997a948f8ca414a71e84e7c9615df928be01c1c4ca744085b9c", WORDMARK_WHITE_1X),
+    ("91f827498cde94ab869a24a861eaf37a6550733ec58f452124feeedccb4596f6", WORDMARK_2X),
+    ("23195e26c92c275e99b9c55433e5add1741af93171cdee0ef6c4013f8a6cf205", WORDMARK_WHITE_2X),
+];
+
+/// Which resource ids to replace, per pack.
+#[derive(Default)]
+struct LogoIds {
+    scale_100: std::collections::HashMap<i32, &'static [u8]>,
+    scale_200: std::collections::HashMap<i32, &'static [u8]>,
+    unscaled: std::collections::HashMap<i32, &'static [u8]>,
+}
+
+fn logo_ids() -> &'static LogoIds {
+    static IDS: OnceLock<LogoIds> = OnceLock::new();
+    IDS.get_or_init(|| {
+        // Only the browser process draws Chromium's interface; helpers (renderers…) skip the work.
+        let is_browser = command_line_get_global().map(|c| c.has_switch(Some(&CefString::from("type"))) == 0).unwrap_or(false);
+        if !is_browser {
+            return LogoIds::default();
+        }
+        let Some(dir) = pak_dir() else { return LogoIds::default() };
+        let mut ids = LogoIds {
+            scale_100: scan(&dir.join("chrome_100_percent.pak")),
+            scale_200: scan(&dir.join("chrome_200_percent.pak")),
+            unscaled: scan(&dir.join("resources.pak")),
+        };
+        let name = std::ffi::CString::new("IDR_WEBUI_IMAGES_CHROME_LOGO_DARK_SVG").expect("no NUL");
+        // SAFETY: a valid NUL-terminated string; the function only reads it.
+        let svg = unsafe { sys::cef_id_for_pack_resource_name(name.as_ptr()) };
+        if svg >= 0 {
+            ids.unscaled.insert(svg, WOLF_SVG_GZ);
+        }
+        ids
     })
 }
 
-/// Scaled images (chrome_100_percent.pak / chrome_200_percent.pak): 14307 IDR_PRODUCT_LOGO_32 (32 / 64 px),
-/// 14309 IDR_PRODUCT_LOGO_16 Linux (16 px in both), 14313 / 14314 IDR_PRODUCT_LOGO_NAME_22 (+_WHITE) (97×22 /
-/// 194×44), 40264 a 16 px logo (16 / 32 px).
+/// Where CEF keeps its .pak files: beside the executable (Linux, Windows), in the framework's Resources (macOS).
+fn pak_dir() -> Option<std::path::PathBuf> {
+    let exe_dir = std::env::current_exe().ok()?.parent()?.to_path_buf();
+    [exe_dir.clone(), exe_dir.join("../Frameworks/Chromium Embedded Framework.framework/Resources")]
+        .into_iter()
+        .find(|d| d.join("chrome_100_percent.pak").is_file())
+}
+
+/// Resource ids in one pack whose bytes are a known Chromium logo.
+fn scan(pak: &std::path::Path) -> std::collections::HashMap<i32, &'static [u8]> {
+    use sha2::{Digest, Sha256};
+    let mut found = std::collections::HashMap::new();
+    let Ok(data) = std::fs::read(pak) else { return found };
+    for (id, bytes) in pak_entries(&data) {
+        if !bytes.starts_with(b"\x89PNG") {
+            continue;
+        }
+        let hash: String = Sha256::digest(bytes).iter().map(|b| format!("{b:02x}")).collect();
+        if let Some((_, image)) = LOGOS.iter().find(|(h, _)| *h == hash) {
+            found.insert(i32::from(id), *image);
+        }
+    }
+    found
+}
+
+/// Entries of a Chromium .pak, version 5 (ui/base/resource/data_pack.cc): u32 version, u8 encoding, 3 pad,
+/// u16 resource count, u16 alias count, then (count + 1) × (u16 id, u32 offset), then aliases (u16 id, u16 index).
+fn pak_entries(pak: &[u8]) -> Vec<(u16, &[u8])> {
+    let u16_at = |o: usize| pak.get(o..o + 2).map(|b| u16::from_le_bytes([b[0], b[1]]));
+    let u32_at = |o: usize| pak.get(o..o + 4).map(|b| u32::from_le_bytes([b[0], b[1], b[2], b[3]]));
+    let mut out = Vec::new();
+    if u32_at(0) != Some(5) {
+        return out;
+    }
+    let (Some(count), Some(aliases)) = (u16_at(8), u16_at(10)) else { return out };
+    let (count, aliases) = (count as usize, aliases as usize);
+    let entry = |i: usize| Some((u16_at(12 + 6 * i)?, u32_at(14 + 6 * i)? as usize));
+    let mut by_index = Vec::with_capacity(count);
+    for i in 0..count {
+        let (Some((id, start)), Some((_, end))) = (entry(i), entry(i + 1)) else { return out };
+        let Some(bytes) = pak.get(start..end) else { return out };
+        by_index.push(bytes);
+        out.push((id, bytes));
+    }
+    let alias_base = 12 + 6 * (count + 1);
+    for a in 0..aliases {
+        if let (Some(id), Some(index)) = (u16_at(alias_base + 4 * a), u16_at(alias_base + 4 * a + 2)) {
+            if let Some(bytes) = by_index.get(index as usize) {
+                out.push((id, bytes));
+            }
+        }
+    }
+    out
+}
+
+fn unscaled_image(id: i32) -> Option<&'static [u8]> {
+    let ids = logo_ids();
+    ids.unscaled.get(&id).or_else(|| ids.scale_100.get(&id)).copied()
+}
+
 fn scaled_image(id: i32, double: bool) -> Option<&'static [u8]> {
-    Some(match (id, double) {
-        (14307, false) => WOLF_32,
-        (14307, true) => WOLF_64,
-        (14309, _) => WOLF_16,
-        (14313, false) => WORDMARK_1X,
-        (14313, true) => WORDMARK_2X,
-        (14314, false) => WORDMARK_WHITE_1X,
-        (14314, true) => WORDMARK_WHITE_2X,
-        (40264, false) => WOLF_16,
-        (40264, true) => WOLF_32,
-        _ => return None,
-    })
+    let ids = logo_ids();
+    let (first, second) = if double { (&ids.scale_200, &ids.scale_100) } else { (&ids.scale_100, &ids.scale_200) };
+    first.get(&id).or_else(|| second.get(&id)).copied()
 }
 
 /// Hand CEF a pointer to a static image (CefResourceBundleHandler::GetDataResource: "The resource data will not be
@@ -221,56 +318,35 @@ pub fn handler() -> ResourceBundleHandler {
 mod tests {
     use super::rebrand;
 
-    /// The image ids must still be Chromium's logos in the CEF build in third_party/cef (catches a CEF upgrade that
-    /// renumbers them). Skipped when the runtime hasn't been fetched.
+    /// Every logo in this CEF build's packs is found by fingerprint, and replaced by an image of the same size.
+    /// Skipped when the runtime hasn't been fetched.
     #[test]
-    fn scanned_ids_match_this_cef_build() {
+    fn logos_are_found_by_fingerprint() {
         let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("third_party/cef");
-        let Ok(p100) = std::fs::read(dir.join("chrome_100_percent.pak")) else { return };
-        let p200 = std::fs::read(dir.join("chrome_200_percent.pak")).unwrap();
-        let res = std::fs::read(dir.join("resources.pak")).unwrap();
-        let size = |pak: &[u8], id: u16| png_size(pak_entry(pak, id).unwrap_or_else(|| panic!("id {id} missing")));
-        assert_eq!(size(&p100, 14307), (32, 32));
-        assert_eq!(size(&p200, 14307), (64, 64));
-        assert_eq!(size(&p100, 14309), (16, 16));
-        assert_eq!(size(&p100, 14313), (97, 22));
-        assert_eq!(size(&p200, 14313), (194, 44));
-        assert_eq!(size(&p100, 14314), (97, 22));
-        assert_eq!(size(&p100, 40264), (16, 16));
-        assert_eq!(size(&res, 14187), (16, 16));
-        assert_eq!(size(&res, 14188), (24, 24));
-        assert_eq!(size(&res, 14189), (64, 64));
-        assert_eq!(size(&res, 14190), (128, 128));
-        // And WolfWeb's replacements have the same sizes.
-        assert_eq!(png_size(super::WOLF_32), (32, 32));
-        assert_eq!(png_size(super::WORDMARK_1X), (97, 22));
-        assert_eq!(png_size(super::WORDMARK_WHITE_2X), (194, 44));
-        assert_eq!(png_size(super::WOLF_128), (128, 128));
+        if !dir.join("chrome_100_percent.pak").is_file() {
+            return;
+        }
+        let p100 = super::scan(&dir.join("chrome_100_percent.pak"));
+        let p200 = super::scan(&dir.join("chrome_200_percent.pak"));
+        let res = super::scan(&dir.join("resources.pak"));
+        assert!(p100.len() >= 4, "100% pack logos: {}", p100.len());
+        assert!(p200.len() >= 4, "200% pack logos: {}", p200.len());
+        assert!(res.len() >= 3, "resources.pak logos: {}", res.len());
+        let pak = std::fs::read(dir.join("chrome_200_percent.pak")).unwrap();
+        for (id, bytes) in super::pak_entries(&pak) {
+            if let Some(replacement) = p200.get(&i32::from(id)) {
+                assert_eq!(png_size(bytes), png_size(replacement), "id {id}");
+            }
+        }
     }
 
-    /// Chromium .pak version 5 (ui/base/resource/data_pack.cc): u32 version, u8 encoding, 3 pad, u16 count,
-    /// u16 alias count, then (count + 1) × (u16 id, u32 offset), then aliases (u16 id, u16 entry index).
-    fn pak_entry(pak: &[u8], want: u16) -> Option<&[u8]> {
-        let u16_at = |o: usize| u16::from_le_bytes([pak[o], pak[o + 1]]);
-        let u32_at = |o: usize| u32::from_le_bytes([pak[o], pak[o + 1], pak[o + 2], pak[o + 3]]);
-        assert_eq!(u32_at(0), 5, "pak version");
-        let count = u16_at(8) as usize;
-        let aliases = u16_at(10) as usize;
-        let entry = |i: usize| (u16_at(12 + 6 * i), u32_at(14 + 6 * i) as usize);
-        for i in 0..count {
-            let (id, start) = entry(i);
-            if id == want {
-                return Some(&pak[start..entry(i + 1).1]);
-            }
-        }
-        let alias_base = 12 + 6 * (count + 1);
-        for a in 0..aliases {
-            if u16_at(alias_base + 4 * a) == want {
-                let i = u16_at(alias_base + 4 * a + 2) as usize;
-                return Some(&pak[entry(i).1..entry(i + 1).1]);
-            }
-        }
-        None
+    #[test]
+    fn replacements_have_chromiums_sizes() {
+        assert_eq!(png_size(super::WOLF_32), (32, 32));
+        assert_eq!(png_size(super::WOLF_256), (256, 256));
+        assert_eq!(png_size(super::WORDMARK_1X), (97, 22));
+        assert_eq!(png_size(super::WORDMARK_WHITE_2X), (194, 44));
+        assert!(super::pak_entries(b"not a pak").is_empty());
     }
 
     /// Width and height from a PNG's IHDR.
