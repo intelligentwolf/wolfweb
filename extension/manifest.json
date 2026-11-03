@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "WolfWeb",
   "short_name": "WolfWeb",
-  "description": "WolfWeb's own features: the new-tab page and its backgrounds, your daily newspaper, bringing your things over from other browsers, quick commands, command chains, a side panel with notes, web panels and WolfMail, and mouse gestures.",
+  "description": "WolfWeb's own features: the menu bar and status bar, the new-tab page and its backgrounds, your daily newspaper, bringing your things over from other browsers, quick commands, command chains, a side panel with notes, web panels and WolfMail, and mouse gestures.",
   "version": "0.1.0",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAjEhkanVpzqSBfSB8JIlJHlNU7YrxosAOwV0UnU9U0ca/QBCYWAGAbAQUSUOAleyV4r3Mw0WPXcnegVSQWqKzs7OWk6oYaXz+2WAgdwR6MjswQmpA1A+wSPnCTWX151y0OKoQF7rjtGnU0iXpvnMcCTvNVi+/zdXa8sFNo+C6qHLIk/FLIFA8VB82VSaRZd9xYQSdzCBl7dHr6Jx5Gwp4p0QO1MrcD0kywPBicZT53CMgZV0uLuESUpxBTKuNDk1/5gQ0j3vKM22+uForE7RNdXEB9bRzaKEXsDM+A6ArgdvALUsNS9EAkiQU7IKH07JoOEGFs5aggsl6/Edi4qVQNQIDAQAB",
   "minimum_chrome_version": "156",
@@ -60,6 +60,16 @@
         "gestures.js"
       ],
       "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "statusbar.js"
+      ],
+      "run_at": "document_idle"
     }
   ],
   "host_permissions": [

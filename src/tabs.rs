@@ -220,3 +220,11 @@ pub fn close_all_browsers() {
 pub fn browser_by_id(id: i32) -> Option<Browser> {
     MODEL.with(|m| m.borrow().browsers.iter().find(|b| b.identifier() == id).cloned())
 }
+
+/// Open `url` in a new tab in the same window as browser `browser_id` (or the last window if it's gone).
+pub fn open_tab_beside(browser_id: i32, url: &str) {
+    match browser_by_id(browser_id) {
+        Some(b) => request_tabs(&b, vec![url.to_string()]),
+        None => open_in_new_tabs(vec![url.to_string()]),
+    }
+}

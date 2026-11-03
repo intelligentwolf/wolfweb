@@ -183,6 +183,7 @@ wrap_request_context_handler! {
                         eprintln!("wolfweb: couldn't switch off Chromium's startup restore:{error}");
                     }
                 }
+                crate::defaults::apply_once(context);
             }
             STARTUP.with(|s| s.context_ready.set(true));
             maybe_open_first_windows();

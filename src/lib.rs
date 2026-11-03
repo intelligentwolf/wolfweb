@@ -9,10 +9,12 @@ mod actions;
 mod app;
 mod backgrounds;
 mod branding;
+mod defaults;
 #[cfg(target_os = "linux")]
 mod desktop;
 mod extension;
 mod import;
+mod menu;
 #[cfg(target_os = "macos")]
 pub mod mac;
 mod profile;

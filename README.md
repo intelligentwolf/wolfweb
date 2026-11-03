@@ -10,6 +10,9 @@ they do in Chrome. It wears WolfMail's colours and type, and keeps everything on
 
 ## What you get
 
+- **Menu bar and status bar** — File, Edit, View, Bookmarks, Tools, Window and Help along the top (with a 📰 Daily
+  button), and a status bar along the bottom of web pages (load time, reading time, zoom, clock). Everything starts
+  switched on; WolfWeb settings turns things off.
 - **Chrome extensions** — install anything from the [Chrome Web Store](https://chromewebstore.google.com/) with
   “Add to Chrome”; extension buttons and popups sit in the toolbar.
 - **Google search** from the address bar and from WolfWeb's new-tab page, with your most-visited sites below it.
@@ -41,12 +44,14 @@ Download it from [WolfMail's releases](https://github.com/intelligentwolf/wolfma
 | Part | What it does |
 |---|---|
 | `src/` (Rust) | Starts Chromium with WolfWeb's profile and brand, opens and restores windows and tabs, renames “Chromium” to “WolfWeb” in Chromium's interface, and reads other browsers' profiles for import (`src/import/`). |
-| `extension/` | WolfWeb's built-in extension, loaded at every start: new-tab page, import page, quick commands, command chains, notes, gestures. |
+| `extension/` | WolfWeb's built-in extension, loaded at every start: menu bar, status bar, settings, new-tab page, newspaper, import, quick commands, command chains, side panel, gestures. |
 | `wolfweb://app/api/…` | The small API the built-in extension uses for what only native code can do — import, Pictures-folder backgrounds, saving PDFs, starting WolfMail, vertical tabs and split view. Only WolfWeb's own extension pages may call it (`src/scheme.rs`). |
 | `xtask/` | `cargo run -p xtask -- bundle [--release]` builds the bundle for the platform you're on. |
 
 The tab strip, toolbar and menus are Chromium's own (in WolfWeb's colours): CEF allows one Chrome-style browser per
-custom window, so a hand-drawn tab strip would break extensions (`src/tabs.rs` has the details).
+custom window, so a hand-drawn tab strip would break extensions (`src/tabs.rs` has the details). WolfWeb's menu bar
+is therefore made of folders on Chromium's bookmarks bar; their items are WolfWeb addresses that the Rust side runs as
+Chromium commands instead of opening (`src/menu.rs`).
 
 ## Build from source
 

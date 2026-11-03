@@ -71,7 +71,8 @@ const WOLFWEB_COMMANDS = (() => {
     { id: "web-store", title: "Get extensions (Chrome Web Store)", run: () => open("https://chromewebstore.google.com/category/extensions") },
     { id: "passwords", title: "Passwords", run: () => open("chrome://password-manager/passwords") },
     { id: "settings", title: "Settings", run: () => open("chrome://settings") },
-    { id: "daily", title: "Your newspaper (The WolfWeb Daily)", run: () => page("daily.html") },
+    { id: "daily", title: "📰 Your newspaper (The WolfWeb Daily)", run: () => page("daily.html") },
+    { id: "wolfweb-settings", title: "WolfWeb settings (menu bar, status bar, gestures)", run: () => page("settings.html") },
     { id: "import", title: "Bring your stuff from another browser", run: () => page("import.html") },
     { id: "edit-chains", title: "Edit command chains", run: () => page("chains.html") },
   ];

@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WolfWeb settings</title>
+  <link rel="icon" href="icons/wolfweb-32.png">
+  <link rel="stylesheet" href="theme.css">
+  <link rel="stylesheet" href="settings.css">
+</head>
+<body>
+  <main class="page">
+    <header class="head">
+      <img src="icons/wolfweb-64.png" alt="" width="48" height="48">
+      <div>
+        <h1 class="font-title">WolfWeb settings</h1>
+        <p class="muted">Everything starts switched on. Turn off anything you don't want.</p>
+      </div>
+    </header>
+
+    <section class="card pad" aria-labelledby="look-title">
+      <h2 id="look-title">Across the top and bottom</h2>
+      <div class="setting">
+        <div><strong id="l-menuBar">Menu bar</strong><p class="muted" id="d-menuBar">File, Edit, View, Bookmarks, Tools, Window and Help along the top.</p></div>
+        <button class="switch" role="switch" data-feature="menuBar" aria-labelledby="l-menuBar" aria-describedby="d-menuBar"></button>
+      </div>
+      <div class="setting">
+        <div><strong id="l-dailyButton">📰 Daily button</strong><p class="muted" id="d-dailyButton">Your newspaper, one click away along the top.</p></div>
+        <button class="switch" role="switch" data-feature="dailyButton" aria-labelledby="l-dailyButton" aria-describedby="d-dailyButton"></button>
+      </div>
+      <div class="setting">
+        <div><strong id="l-statusBar">Status bar</strong><p class="muted" id="d-statusBar">Load time, reading time, zoom and the time along the bottom of web pages. (Chromium's own pages, such as Settings, can't show it.)</p></div>
+        <button class="switch" role="switch" data-feature="statusBar" aria-labelledby="l-statusBar" aria-describedby="d-statusBar"></button>
+      </div>
+      <div id="hidden-sites" class="hidden-sites" hidden>
+        <p class="muted">Status bar hidden on: <span id="hidden-list"></span></p>
+        <button id="show-everywhere" class="btn" type="button">Show it everywhere again</button>
+      </div>
+    </section>
+
+    <section class="card pad" aria-labelledby="work-title">
+      <h2 id="work-title">Working faster</h2>
+      <div class="setting">
+        <div><strong id="l-gestures">Mouse gestures</strong><p class="muted" id="d-gestures">Hold Alt and drag: ← back, → forward, ↓ new tab, ↓→ close tab, ↑↓ reload, ↑ top of page.</p></div>
+        <button class="switch" role="switch" data-feature="gestures" aria-labelledby="l-gestures" aria-describedby="d-gestures"></button>
+      </div>
+      <div class="links">
+        <button class="btn" type="button" data-open="chrome://extensions/shortcuts">Keyboard shortcuts</button>
+        <button class="btn" type="button" data-open="chains.html">Command chains</button>
+      </div>
+    </section>
+
+    <section class="card pad" aria-labelledby="more-title">
+      <h2 id="more-title">Your WolfWeb</h2>
+      <div class="links">
+        <button class="btn" type="button" data-open="newtab.html">New-tab page and background (Customise)</button>
+        <button class="btn" type="button" data-open="daily.html">📰 Your newspaper</button>
+        <button class="btn" type="button" data-open="import.html">Bring your stuff from another browser</button>
+        <button class="btn" type="button" data-open="chrome://settings">All browser settings</button>
+      </div>
+    </section>
+    <p id="status" class="msg msg-ok" role="status" aria-live="polite"></p>
+    <p id="error" class="msg msg-err" role="alert" aria-live="assertive"></p>
+  </main>
+  <script src="features.js"></script>
+  <script src="settings.js"></script>
+</body>
+</html>

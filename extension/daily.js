@@ -15,7 +15,12 @@
     { name: "The Guardian — UK", url: "https://www.theguardian.com/uk-news/rss" },
     { name: "Hacker News", url: "https://hnrss.org/frontpage" },
   ];
-  const DEFAULTS = { masthead: "The WolfWeb Daily", topics: [], feeds: [] };
+  // Ready on first open (BBC News top stories and technology); "Choose what's in it" changes it.
+  const DEFAULTS = {
+    masthead: "The WolfWeb Daily",
+    topics: [],
+    feeds: ["https://feeds.bbci.co.uk/news/rss.xml", "https://feeds.bbci.co.uk/news/technology/rss.xml"],
+  };
   const PER_SECTION = 7;
   let settings = { ...DEFAULTS };
 

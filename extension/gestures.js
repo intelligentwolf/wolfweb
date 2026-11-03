@@ -3,6 +3,12 @@
 //   ←  back      →  forward      ↑↓  reload      ↓→  close tab      ↓  new tab      ↑  scroll to top
 (() => {
   const STEP = 30; // pixels before a stroke counts
+  // On unless switched off in WolfWeb settings.
+  let enabled = true;
+  chrome.storage.local.get({ features: {} }).then(({ features }) => (enabled = (features || {}).gestures !== false));
+  chrome.storage.onChanged.addListener((c, area) => {
+    if (area === "local" && c.features) enabled = ((c.features.newValue || {}).gestures) !== false;
+  });
   let start = null;
   let last = null;
   let moves = "";
@@ -36,7 +42,7 @@
   window.addEventListener(
     "mousedown",
     (e) => {
-      if (e.button !== 0 || !e.altKey) return;
+      if (!enabled || e.button !== 0 || !e.altKey) return;
       start = last = { x: e.clientX, y: e.clientY };
       moves = "";
       e.preventDefault(); // no text selection or link drag while drawing

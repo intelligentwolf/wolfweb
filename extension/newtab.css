@@ -84,3 +84,5 @@ body.has-bg .hint kbd { color: var(--foreground); text-shadow: none; }
 .choices .muted { font-size: 13px; }
 .dialog-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .dialog-row.end { justify-content: flex-end; }
+
+.link-icon { vertical-align: -3px; border-radius: 4px; }

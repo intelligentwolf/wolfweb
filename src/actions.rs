@@ -6,39 +6,77 @@ use serde_json::json;
 #[cfg(any(target_os = "linux", target_os = "windows"))]
 use std::path::PathBuf;
 
-// Source: cef/include/cef_command_ids.h (CEF 156.0.15) — 88 IDC_NEW_SPLIT_TAB 34057, 89 IDC_TOGGLE_VERTICAL_TABS
-// 34058, 92 IDC_TOGGLE_VERTICAL_TABS_COLLAPSE 34061, 395 IDC_TAB_SEARCH 52500.
-const IDC_NEW_SPLIT_TAB: i32 = 34057;
-const IDC_TOGGLE_VERTICAL_TABS: i32 = 34058;
-const IDC_TOGGLE_VERTICAL_TABS_COLLAPSE: i32 = 34061;
-const IDC_TAB_SEARCH: i32 = 52500;
-
-/// The Chromium commands the WolfWeb extension may run, by name. Nothing else can be sent.
-fn chrome_command(name: &str) -> Option<i32> {
+/// The Chromium commands WolfWeb's menus and pages may run, by name — nothing else can be sent.
+/// Source: cef/include/cef_command_ids.h (CEF 156.0.15); each value is that header's #define (line in brackets).
+pub fn chrome_command(name: &str) -> Option<i32> {
     Some(match name {
-        "split-view" => IDC_NEW_SPLIT_TAB,
-        "vertical-tabs" => IDC_TOGGLE_VERTICAL_TABS,
-        "vertical-tabs-collapse" => IDC_TOGGLE_VERTICAL_TABS_COLLAPSE,
-        "tab-search" => IDC_TAB_SEARCH,
+        "back" => 33000,                     // IDC_BACK [43]
+        "forward" => 33001,                  // IDC_FORWARD [44]
+        "reload" => 33002,                   // IDC_RELOAD [45]
+        "new-window" => 34000,               // IDC_NEW_WINDOW [51]
+        "new-private-window" => 34001,       // IDC_NEW_INCOGNITO_WINDOW [52]
+        "close-window" => 34012,             // IDC_CLOSE_WINDOW [54]
+        "new-tab" => 34014,                  // IDC_NEW_TAB [55]
+        "close-tab" => 34015,                // IDC_CLOSE_TAB [56]
+        "next-tab" => 34016,                 // IDC_SELECT_NEXT_TAB [57]
+        "previous-tab" => 34017,             // IDC_SELECT_PREVIOUS_TAB [58]
+        "duplicate-tab" => 34027,            // IDC_DUPLICATE_TAB [70]
+        "reopen-tab" => 34028,               // IDC_RESTORE_TAB [71]
+        "fullscreen" => 34030,               // IDC_FULLSCREEN [73]
+        "exit" => 34031,                     // IDC_EXIT [74]
+        "split-view" => 34057,               // IDC_NEW_SPLIT_TAB [88]
+        "vertical-tabs" => 34058,            // IDC_TOGGLE_VERTICAL_TABS [89]
+        "vertical-tabs-collapse" => 34061,   // IDC_TOGGLE_VERTICAL_TABS_COLLAPSE [92]
+        "bookmark-this-tab" => 35000,        // IDC_BOOKMARK_THIS_TAB [110]
+        "view-source" => 35002,              // IDC_VIEW_SOURCE [112]
+        "print" => 35003,                    // IDC_PRINT [113]
+        "save-page" => 35004,                // IDC_SAVE_PAGE [114]
+        "passwords" => 35041,                // IDC_SHOW_PASSWORD_MANAGER [139]
+        "pin-tab" => 35051,                  // IDC_PIN_TARGET_TAB [147]
+        "cut" => 36000,                      // IDC_CUT [150]
+        "copy" => 36001,                     // IDC_COPY [151]
+        "paste" => 36003,                    // IDC_PASTE [152]
+        "find" => 37000,                     // IDC_FIND [153]
+        "zoom-in" => 38001,                  // IDC_ZOOM_PLUS [168]
+        "zoom-reset" => 38002,               // IDC_ZOOM_NORMAL [169]
+        "zoom-out" => 38003,                 // IDC_ZOOM_MINUS [170]
+        "open-file" => 40000,                // IDC_OPEN_FILE [180]
+        "dev-tools" => 40004,                // IDC_DEV_TOOLS [182]
+        "task-manager" => 40006,             // IDC_TASK_MANAGER [184]
+        "history" => 40010,                  // IDC_SHOW_HISTORY [188]
+        "bookmark-manager" => 40011,         // IDC_SHOW_BOOKMARK_MANAGER [189]
+        "downloads" => 40012,                // IDC_SHOW_DOWNLOADS [190]
+        "clear-browsing-data" => 40013,      // IDC_CLEAR_BROWSING_DATA [191]
+        "settings" => 40015,                 // IDC_OPTIONS [193]
+        "about" => 40018,                    // IDC_ABOUT [196]
+        "extensions" => 40022,               // IDC_MANAGE_EXTENSIONS [200]
+        "tab-search" => 52500,               // IDC_TAB_SEARCH [395]
         _ => return None,
     })
+}
+
+/// Run a named command on `host`'s window. Err with a message fit to show.
+pub fn run_chrome_command(host: &BrowserHost, name: &str) -> Result<(), &'static str> {
+    let Some(id) = chrome_command(name) else { return Err("Unknown command") };
+    if host.can_execute_chrome_command(id) == 0 {
+        return Err("That isn't available in this window right now.");
+    }
+    host.execute_chrome_command(id, WindowOpenDisposition::CURRENT_TAB);
+    Ok(())
 }
 
 pub fn api(cmd: &str, params: &Params) -> Reply {
     match cmd {
         // UI thread (scheme.rs thread_for).
         "browser/command" => {
-            let Some(id) = param(params, "name").and_then(chrome_command) else {
-                return Reply::error(400, "Unknown command");
-            };
+            let name = param(params, "name").unwrap_or("");
             let Some(host) = crate::tabs::focused_browser().and_then(|b| b.host()) else {
                 return Reply::error(409, "Open a WolfWeb window first.");
             };
-            if host.can_execute_chrome_command(id) == 0 {
-                return Reply::error(409, "That isn't available in this window right now.");
+            match run_chrome_command(&host, name) {
+                Ok(()) => Reply::json(&json!({ "ok": true })),
+                Err(e) => Reply::error(409, e),
             }
-            host.execute_chrome_command(id, WindowOpenDisposition::CURRENT_TAB);
-            Reply::json(&json!({ "ok": true }))
         }
         // Blocking thread.
         "wolfmail/open" => match open_wolfmail() {
@@ -139,7 +177,9 @@ mod tests {
     fn only_listed_commands_are_allowed() {
         assert_eq!(chrome_command("vertical-tabs"), Some(34058));
         assert_eq!(chrome_command("split-view"), Some(34057));
-        assert_eq!(chrome_command("exit"), None);
+        assert_eq!(chrome_command("find"), Some(37000));
+        assert_eq!(chrome_command("new-private-window"), Some(34001));
+        assert_eq!(chrome_command("format-disk"), None);
         assert_eq!(chrome_command(""), None);
     }
 }

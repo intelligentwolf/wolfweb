@@ -17,6 +17,39 @@ wrap_client! {
         fn focus_handler(&self) -> Option<FocusHandler> {
             Some(WolfFocus::new())
         }
+
+        fn request_handler(&self) -> Option<RequestHandler> {
+            Some(WolfRequests::new())
+        }
+    }
+}
+
+wrap_request_handler! {
+    struct WolfRequests;
+
+    impl RequestHandler {
+        fn on_before_browse(
+            &self,
+            browser: Option<&mut Browser>,
+            frame: Option<&mut Frame>,
+            request: Option<&mut Request>,
+            _user_gesture: i32,
+            _is_redirect: i32,
+        ) -> i32 {
+            // WolfWeb's menu bar items (menu.rs): run them instead of navigating.
+            let (Some(browser), Some(frame), Some(request)) = (browser, frame, request) else { return 0 };
+            if frame.is_main() == 0 {
+                return 0;
+            }
+            let url = CefString::from(&request.url()).to_string();
+            match crate::menu::parse(&url) {
+                Some(action) => {
+                    crate::menu::run(browser, action);
+                    1
+                }
+                None => 0,
+            }
+        }
     }
 }
 
