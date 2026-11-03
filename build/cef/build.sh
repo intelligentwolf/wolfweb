@@ -15,7 +15,14 @@ A=(python3 /build/automate/automate-git.py --download-dir=/build/download --depo
    --branch="$BRANCH" --x64-build --no-chromium-history --no-debug-build)
 case "$STEP" in
   download)
-    "${A[@]}" --no-build --no-distrib
+    # Chromium comes from Google's official source tarball, not a git fetch from googlesource (which stalled on
+    # wolf-server, 2026-11-03). automate-git.py supports this itself: --chromium-archive extracts it, applies CEF's
+    # tarball_deps / tarball_gclient patches and checks the hash. The version is CEF's chromium_checkout
+    # (cef/CHROMIUM_BUILD_COMPATIBILITY.txt: refs/tags/156.0.8078.80); the hash is Google's published one
+    # (chromium-browser-official/chromium-156.0.8078.80.tar.xz.hashes).
+    "${A[@]}" --no-build --no-distrib \
+      --chromium-archive=/build/chromium-156.0.8078.80.tar.xz \
+      --chromium-archive-sha256=5b1a1f3bfdf4fc559db4eddfb4492b72ffcec7ae1a52b30f8b172230788f5740
     ;;
   build)
     # chromiumembedded.github.io/cef/automated_build_setup.html, Linux 64-bit example.
