@@ -61,6 +61,11 @@ input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--iw-red);
 .story h3 { margin: 0 0 4px; font-size: 20px; line-height: 1.15; }
 .story.top h3 { font-size: 26px; }
 .story img { width: 100%; height: auto; margin-bottom: 6px; filter: grayscale(0.15); }
+.paper p.body { text-align: justify; hyphens: auto; }
+.lead p.body { font-size: 17px; }
+.paper a.more { display: inline-block; margin-top: 2px; font: 600 12px var(--font-sans); color: #9c1414; }
+.paper a.more:hover { text-decoration: underline; }
+.story.top p.body:first-of-type::first-letter { float: left; font-size: 3.1em; line-height: 0.85; padding: 4px 6px 0 0; font-weight: 700; }
 .colophon { border-top: 1px solid var(--rule); padding-top: 8px; font: 12px var(--font-sans); color: #555; text-align: center; }
 
 @media (max-width: 900px) {

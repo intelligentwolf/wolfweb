@@ -33,7 +33,7 @@
           <input id="topic-input" type="text" autocomplete="off" placeholder="e.g. Rust programming, wolves, Formula 1" aria-describedby="topic-hint topic-error">
           <button id="topic-add" class="btn" type="button">Add</button>
         </div>
-        <p id="topic-hint" class="muted small">Each one becomes a section, filled from Google News.</p>
+        <p id="topic-hint" class="muted small">Each one becomes a section, filled from Bing News, with each story's opening paragraphs.</p>
         <p id="topic-error" class="field-error" hidden>Add at least one interest or news source.</p>
         <ul id="topics" class="chips" aria-label="Your interests"></ul>
       </div>
@@ -63,7 +63,7 @@
     </header>
     <section id="lead" class="lead"></section>
     <div id="sections"></div>
-    <footer class="colophon">Stories link to their publishers. Interests via Google News; feeds as you chose them.</footer>
+    <footer class="colophon">Each story's opening paragraphs, with a link to the full article at its publisher. Interests via Bing News; feeds as you chose them.</footer>
   </article>
   <script src="daily.js"></script>
 </body>

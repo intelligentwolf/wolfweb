@@ -46,15 +46,26 @@
   const saveSettings = () => chrome.storage.local.set({ daily: settings });
 
   // ── Fetching and reading feeds ─────────────────────────────────────────────────────────────────────────────
-  function googleNews(topic) {
-    const lang = (navigator.language || "en-GB").split("-");
-    const region = (lang[1] || "GB").toUpperCase();
-    const u = new URL("https://news.google.com/rss/search");
+  // Interests come from Bing News' RSS search: unlike Google News it links straight to the publisher (in the
+  // link's url= parameter), with a real summary and a picture per story (checked 2026-11-03).
+  function topicFeed(topic) {
+    const region = ((navigator.language || "en-GB").split("-")[1] || "GB").toUpperCase();
+    const u = new URL("https://www.bing.com/news/search");
     u.searchParams.set("q", topic);
-    u.searchParams.set("hl", navigator.language || "en-GB");
-    u.searchParams.set("gl", region);
-    u.searchParams.set("ceid", `${region}:${lang[0]}`);
+    u.searchParams.set("format", "rss");
+    u.searchParams.set("cc", region);
     return u.toString();
+  }
+
+  /** Bing's tracking link → the publisher's own address. */
+  function directLink(link) {
+    try {
+      const u = new URL(link);
+      if (/(^|\.)bing\.com$/.test(u.hostname) && u.searchParams.get("url")) return httpUrl(u.searchParams.get("url"));
+    } catch {
+      /* not a URL */
+    }
+    return link;
   }
 
   /** Parse RSS 2.0 or Atom into stories. */
@@ -73,7 +84,7 @@
         // Google News puts the publisher at the end of the headline: "Headline - Publisher".
         if (source && headline.endsWith(` - ${source}`)) headline = headline.slice(0, -(source.length + 3));
         const linkEl = n.querySelector("link");
-        const link = httpUrl((linkEl && (linkEl.getAttribute("href") || linkEl.textContent)) || "");
+        const link = directLink(httpUrl((linkEl && (linkEl.getAttribute("href") || linkEl.textContent)) || "") || "");
         let summary = text(get("description") || get("summary") || get("content"));
         if (summary.startsWith(headline)) summary = summary.slice(headline.length).trim();
         // Google News' description is the headline plus the publisher — nothing more to say.
@@ -85,7 +96,15 @@
           .filter((m) => m.url)
           .sort((a, b) => b.w - a.w);
         const enclosure = [...n.querySelectorAll("enclosure")].find((e) => /^image\//.test(e.getAttribute("type") || ""));
-        const image = media.length ? media[0].url : enclosure ? httpUrl(enclosure.getAttribute("url") || "") : null;
+        // Bing: <News:Image>https://www.bing.com/th?id=…</News:Image> — its image service takes a width.
+        const bingImage = (n.getElementsByTagName("News:Image")[0] || {}).textContent;
+        const image = media.length
+          ? media[0].url
+          : enclosure
+            ? httpUrl(enclosure.getAttribute("url") || "")
+            : bingImage
+              ? httpUrl(`${bingImage.trim().replace(/^http:/, "https:")}&w=960`)
+              : null;
         const date = Date.parse(get("pubDate") || get("updated") || get("published")) || 0;
         return { headline, link, source, summary, image, date, section };
       }).filter((s) => s.headline && s.link),
@@ -98,9 +117,85 @@
     return parseFeed(await res.text(), section);
   }
 
+  // ── The stories themselves ─────────────────────────────────────────────────────────────────────────────────
+  // Each story gets its article's opening paragraphs, so the paper can be read without clicking through. A small
+  // readability-style pass: the <article> (or the block with the most paragraph text), its real paragraphs, minus
+  // page furniture. Pages that don't yield text keep the feed's summary.
+  const BOILERPLATE = /cookie|subscribe|sign up|newsletter|all rights reserved|©|javascript|advertisement|log in|register to|follow us|share this/i;
+  const STORY_WORDS = 200;
+  const LEAD_WORDS = 450;
+
+  async function fetchText(url, signal) {
+    const res = await fetch(url, { credentials: "omit", signal, redirect: "follow" });
+    if (!res.ok || !/text\/html/i.test(res.headers.get("content-type") || "")) return null;
+    return res.text();
+  }
+
+  function extract(html, words) {
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    doc.querySelectorAll("script, style, noscript, nav, header, footer, aside, form, figure, iframe, [role='navigation'], [aria-hidden='true']").forEach((e) => e.remove());
+    const candidates = [...doc.querySelectorAll("article, main, [itemprop='articleBody'], div, section")];
+    let best = null;
+    let bestScore = 0;
+    for (const c of candidates) {
+      const score = [...c.querySelectorAll(":scope > p, :scope > div > p")].reduce((n, p) => n + (p.textContent || "").trim().length, 0);
+      const bonus = c.matches("article, [itemprop='articleBody']") ? 1.5 : 1;
+      if (score * bonus > bestScore) {
+        best = c;
+        bestScore = score * bonus;
+      }
+    }
+    if (!best) return { paragraphs: [], image: null };
+    const paragraphs = [];
+    let count = 0;
+    for (const p of best.querySelectorAll("p")) {
+      const t = (p.textContent || "").replace(/\s+/g, " ").trim();
+      if (t.length < 60 || BOILERPLATE.test(t)) continue;
+      paragraphs.push(t);
+      count += t.split(" ").length;
+      if (count >= words) break;
+    }
+    const og = doc.querySelector('meta[property="og:image"], meta[name="twitter:image"]');
+    return { paragraphs, image: og ? httpUrl(og.getAttribute("content") || "") : null };
+  }
+
+  /** Fill stories with their text, a few at a time. */
+  async function addText(stories, leadLink) {
+    let next = 0;
+    let done = 0;
+    const worker = async () => {
+      while (next < stories.length) {
+        const s = stories[next++];
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 12000);
+        try {
+          const html = await fetchText(s.link, ctrl.signal);
+          if (html) {
+            const got = extract(html, s.link === leadLink ? LEAD_WORDS : STORY_WORDS);
+            if (got.paragraphs.join(" ").length > (s.summary || "").length) s.paragraphs = got.paragraphs;
+            if (!s.image && got.image) s.image = got.image;
+          }
+        } catch {
+          /* unreachable or too slow: the summary stays */
+        } finally {
+          clearTimeout(timer);
+          done += 1;
+          statusEl.textContent = `Reading the stories… ${done} of ${stories.length}`;
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: 6 }, worker));
+  }
+
+  /** The newest story with a picture, else the newest. */
+  function pickLead(all) {
+    const byDate = [...all].sort((a, b) => b.date - a.date);
+    return byDate.find((x) => x.image) || byDate[0];
+  }
+
   async function buildEdition() {
     const jobs = [
-      ...settings.topics.map((t) => fetchFeed(googleNews(t), t).then((f) => ({ name: t, stories: f.stories }))),
+      ...settings.topics.map((t) => fetchFeed(topicFeed(t), t).then((f) => ({ name: t, stories: f.stories }))),
       // A feed's section (and each story's kicker) is the feed's own title, not its address.
       ...settings.feeds.map((u) =>
         fetchFeed(u, u).then((f) => ({ name: f.title, stories: f.stories.map((s) => ({ ...s, section: f.title })) })),
@@ -126,7 +221,10 @@
           .slice(0, PER_SECTION),
       }))
       .filter((s) => s.stories.length);
-    return { date: today(), sections, failed };
+    const all = sections.flatMap((x) => x.stories);
+    const lead = pickLead(all);
+    await addText(all, lead && lead.link);
+    return { date: today(), sections, failed, leadLink: lead ? lead.link : null };
   }
 
   // ── The broadsheet ─────────────────────────────────────────────────────────────────────────────────────────
@@ -137,13 +235,24 @@
     return e;
   }
 
+  /** The story's paragraphs (or its summary), then a link to the rest. */
+  function appendBody(node, s) {
+    const paras = s.paragraphs && s.paragraphs.length ? s.paragraphs : s.summary ? [s.summary] : [];
+    paras.forEach((t) => node.appendChild(el("p", "body", t)));
+    const more = el("a", "more", `Continue at ${s.source || new URL(s.link).hostname.replace(/^www\./, "")} →`);
+    more.href = s.link;
+    more.target = "_blank";
+    more.rel = "noopener noreferrer";
+    node.appendChild(more);
+  }
+
   function storyNode(s, cls) {
     const art = el("article", cls);
     const a = el("a");
     a.href = s.link;
     a.target = "_blank";
     a.rel = "noopener noreferrer";
-    if (s.image && cls !== "story") {
+    if (s.image) {
       const img = el("img");
       img.alt = "";
       img.loading = "lazy";
@@ -157,7 +266,7 @@
       .filter(Boolean)
       .join(" · ");
     if (by) art.appendChild(el("p", "byline", by));
-    if (s.summary) art.appendChild(el("p", "", s.summary));
+    appendBody(art, s);
     return art;
   }
 
@@ -173,7 +282,7 @@
 
     // Lead: the newest story that has a picture (else the newest), taken out of its section.
     const all = edition.sections.flatMap((s) => s.stories);
-    const lead = [...all].filter((s) => s.image).sort((a, b) => b.date - a.date)[0] || [...all].sort((a, b) => b.date - a.date)[0];
+    const lead = (edition.leadLink && all.find((s) => s.link === edition.leadLink)) || pickLead(all);
     const leadEl = $("lead");
     leadEl.replaceChildren();
     leadEl.classList.toggle("no-image", !(lead && lead.image));
@@ -187,7 +296,7 @@
       a.appendChild(el("h2", "", lead.headline));
       words.appendChild(a);
       if (lead.source) words.appendChild(el("p", "byline", lead.source));
-      if (lead.summary) words.appendChild(el("p", "summary", lead.summary));
+      appendBody(words, lead);
       leadEl.appendChild(words);
       if (lead.image) {
         const img = el("img");
