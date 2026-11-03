@@ -37,17 +37,23 @@ pub fn load_extension_value(existing: &str) -> Option<String> {
 /// Source: chromium extensions/common/mojom/manifest.mojom:38 — ManifestLocation::kCommandLine = 8 (--load-extension).
 const LOCATION_COMMAND_LINE: i64 = 8;
 
-/// Before Chromium starts: if the profile has WolfWeb's extension stored as anything but a healthy command-line
-/// extension, forget that entry so Chromium registers it afresh from --load-extension.
-///
-/// Why: pressing Reload on it in chrome://extensions re-registers it as an unpacked extension, and Chromium disables
-/// unpacked extensions outside developer mode (chrome/browser/extensions/extension_management.cc:437-456,
-/// DISABLE_UNSUPPORTED_DEVELOPER_EXTENSION). The stored disable reason then survives even once it loads from the
-/// command line again (observed: disable_reasons [16777216] with location 8), leaving WolfWeb without its new-tab
-/// page and import.
+/// Source: chromium chrome/browser/ui/extensions/settings_api_bubble_helpers.cc:69 kNtpOverridingExtensionAcknowledged
+/// = "ack_ntp_bubble" — set when the user keeps an extension's new-tab page (extension_settings_overridden_dialog.cc
+/// AcknowledgeControllingExtension); the dialog doesn't show again once it is true (:148-170).
+const ACK_NTP: &str = "ack_ntp_bubble";
+
+/// Before Chromium starts, keep WolfWeb's built-in extension working:
+/// - Mark Chromium's "an extension changed your new-tab page — keep it?" question as answered. WolfWeb's new-tab page
+///   *is* WolfWeb, not something that took it over; answering "change it back" disables the whole built-in extension
+///   (extension_settings_overridden_dialog.cc:330-334 DISABLE_USER_ACTION) and with it import, quick commands, notes…
+///   (observed: disable_reasons [1] after that prompt).
+/// - Re-enable it if it was disabled anyway.
+/// - Forget the entry if it was re-registered as an unpacked extension (pressing Reload in chrome://extensions does
+///   that), which Chromium disables outside developer mode (chrome/browser/extensions/extension_management.cc:437-456,
+///   DISABLE_UNSUPPORTED_DEVELOPER_EXTENSION); Chromium then registers it afresh from --load-extension.
 pub fn repair_profile(root: &std::path::Path) {
     // Another WolfWeb owns the profile right now (Chromium's process-singleton lock): leave its files alone.
-    if ["SingletonLock", "lockfile"].iter().any(|l| root.join(l).symlink_metadata().is_ok()) {
+    if crate::profile::in_use(root) {
         return;
     }
     let prefs = root.join("Default").join("Preferences");
@@ -60,17 +66,22 @@ pub fn repair_profile(root: &std::path::Path) {
     }
 }
 
-/// The Preferences JSON with WolfWeb's extension entry removed, or None when it is fine as it is.
+/// The repaired Preferences JSON, or None when nothing needs changing.
 fn repaired_prefs(text: &str) -> Option<String> {
     let mut v: serde_json::Value = serde_json::from_str(text).ok()?;
     let settings = v.pointer_mut("/extensions/settings")?.as_object_mut()?;
-    let entry = settings.get(ID)?;
-    let location = entry.get("location").and_then(|l| l.as_i64());
+    let entry = settings.get_mut(ID)?.as_object_mut()?;
+    if entry.get("location").and_then(|l| l.as_i64()) != Some(LOCATION_COMMAND_LINE) {
+        settings.remove(ID);
+        return serde_json::to_string(&v).ok();
+    }
     let disabled = entry.get("disable_reasons").and_then(|d| d.as_array()).is_some_and(|d| !d.is_empty());
-    if location == Some(LOCATION_COMMAND_LINE) && !disabled {
+    let acked = entry.get(ACK_NTP).and_then(|a| a.as_bool()) == Some(true);
+    if !disabled && acked {
         return None;
     }
-    settings.remove(ID);
+    entry.remove("disable_reasons");
+    entry.insert(ACK_NTP.to_string(), serde_json::Value::Bool(true));
     serde_json::to_string(&v).ok()
 }
 
@@ -80,15 +91,25 @@ mod tests {
     use sha2::{Digest, Sha256};
 
     #[test]
-    fn healthy_entry_is_left_alone_broken_one_removed() {
-        let ok = format!(r#"{{"extensions":{{"settings":{{"{ID}":{{"location":8}},"other":{{"location":4}}}}}}}}"#);
+    fn built_in_extension_is_kept_working() {
+        let get = |json: &str| -> serde_json::Value { serde_json::from_str(json).unwrap() };
+        // Healthy and acknowledged: untouched.
+        let ok = format!(r#"{{"extensions":{{"settings":{{"{ID}":{{"location":8,"ack_ntp_bubble":true}}}}}}}}"#);
         assert!(repaired_prefs(&ok).is_none());
+        // Never asked yet: acknowledged up front.
+        let fresh = format!(r#"{{"extensions":{{"settings":{{"{ID}":{{"location":8}}}}}}}}"#);
+        let fixed = get(&repaired_prefs(&fresh).unwrap());
+        assert_eq!(fixed["extensions"]["settings"][ID]["ack_ntp_bubble"], true);
+        // Turned off by "change it back" (disable reason 1): on again, and acknowledged.
+        let off = format!(r#"{{"extensions":{{"settings":{{"{ID}":{{"location":8,"disable_reasons":[1]}}}}}}}}"#);
+        let fixed = get(&repaired_prefs(&off).unwrap());
+        assert!(fixed["extensions"]["settings"][ID].get("disable_reasons").is_none());
+        assert_eq!(fixed["extensions"]["settings"][ID]["ack_ntp_bubble"], true);
+        // Re-registered as unpacked: forgotten, other extensions kept.
         let unpacked = format!(r#"{{"extensions":{{"settings":{{"{ID}":{{"location":4}},"other":{{"location":4}}}}}}}}"#);
-        let fixed: serde_json::Value = serde_json::from_str(&repaired_prefs(&unpacked).unwrap()).unwrap();
+        let fixed = get(&repaired_prefs(&unpacked).unwrap());
         assert!(fixed["extensions"]["settings"].get(ID).is_none());
         assert!(fixed["extensions"]["settings"].get("other").is_some());
-        let disabled = format!(r#"{{"extensions":{{"settings":{{"{ID}":{{"location":8,"disable_reasons":[16777216]}}}}}}}}"#);
-        assert!(repaired_prefs(&disabled).is_some());
         assert!(repaired_prefs(r#"{"extensions":{"settings":{}}}"#).is_none());
         assert!(repaired_prefs("not json").is_none());
     }

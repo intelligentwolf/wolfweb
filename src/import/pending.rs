@@ -42,7 +42,7 @@ pub fn stage(root: &Path, rows: &[RawHistory]) -> Result<usize, String> {
 /// WolfWeb holds the profile (Chromium's singleton lock) or before the profile's History exists (first run).
 pub fn apply(root: &Path) {
     let path = pending_path(root);
-    if !path.is_file() || ["SingletonLock", "lockfile"].iter().any(|l| root.join(l).symlink_metadata().is_ok()) {
+    if !path.is_file() || crate::profile::in_use(root) {
         return;
     }
     let db = root.join("Default").join("History");
@@ -132,6 +132,7 @@ mod tests {
         assert_eq!(known, "Known");
     }
 
+    #[cfg(target_os = "linux")]
     #[test]
     fn waits_while_wolfweb_runs() {
         let dir = tempfile::tempdir().unwrap();
@@ -139,7 +140,9 @@ mod tests {
         std::fs::create_dir_all(root.join("Default")).unwrap();
         schema(&root.join("Default/History"));
         stage(root, &[RawHistory { url: "https://b.example/".into(), title: String::new(), visit_count: 1, typed_count: 0, last_visit_time: 1 }]).unwrap();
-        std::fs::write(root.join("lockfile"), b"").unwrap();
+        let host = std::fs::read_to_string("/proc/sys/kernel/hostname").unwrap();
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(format!("{}-{}", host.trim(), std::process::id()), root.join("SingletonLock")).unwrap();
         apply(root);
         assert!(root.join(PENDING_FILE).exists());
     }
