@@ -5,6 +5,6 @@
 FROM ubuntu:24.04
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      python3 python3-venv git curl ca-certificates xz-utils bzip2 file lsb-release sudo procps \
+      python3 python3-venv git curl ca-certificates xz-utils bzip2 file lsb-release sudo procps patch \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /build
