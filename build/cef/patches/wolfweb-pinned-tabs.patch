@@ -1,0 +1,31 @@
+diff -ruN a/chrome/browser/ui/omnibox/chrome_omnibox_client.cc b/chrome/browser/ui/omnibox/chrome_omnibox_client.cc
+--- a/chrome/browser/ui/omnibox/chrome_omnibox_client.cc	2026-11-03 21:36:50.691149237 +0000
++++ b/chrome/browser/ui/omnibox/chrome_omnibox_client.cc	2026-11-03 21:37:05.581462673 +0000
+@@ -78,6 +78,7 @@
+ #include "chrome/browser/ui/views/frame/browser_view.h"
+ #include "chrome/browser/ui/views/omnibox/omnibox_popup_closer.h"
+ #include "chrome/browser/ui/views/search_engines/dse_reset_dialog.h"
++#include "chrome/browser/ui/tabs/tab_strip_model.h"
+ #include "chrome/common/channel_info.h"
+ #include "chrome/common/pref_names.h"
+ #include "components/bookmarks/browser/bookmark_model.h"
+@@ -959,6 +960,19 @@
+               text, "match", match, "alternative_nav_match",
+               alternative_nav_match);
+ 
++  // WolfWeb: a pinned tab keeps its page. Something else typed into the
++  // address bar while it's active opens in a new tab instead, as Alt+Enter
++  // does; the same address (e.g. pressing Enter to reload) stays put.
++  if (browser_ && disposition == WindowOpenDisposition::CURRENT_TAB) {
++    TabStripModel* const tabs = browser_->GetTabStripModel();
++    content::WebContents* const contents = location_bar_->GetWebContents();
++    if (tabs && contents && tabs->active_index() != TabStripModel::kNoTab &&
++        tabs->IsTabPinned(tabs->active_index()) &&
++        destination_url != contents->GetLastCommittedURL()) {
++      disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
++    }
++  }
++
+   std::string extra_headers;
+   for (const auto& header : match.extra_headers) {
+     base::StrAppend(&extra_headers,
