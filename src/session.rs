@@ -91,8 +91,10 @@ fn window_key(host: &BrowserHost) -> u64 {
     let key = handle.0 as usize as u64;
     #[cfg(target_os = "macos")]
     let key = handle as usize as u64;
+    // c_ulong is u64 on 64-bit Linux (a no-op here) but u32 on 32-bit ARM Linux, which cef-rs also targets.
     #[cfg(target_os = "linux")]
-    let key = u64::from(handle); // c_ulong: u64 on 64-bit, u32 on 32-bit Linux
+    #[allow(clippy::useless_conversion)]
+    let key = u64::from(handle);
     key
 }
 
