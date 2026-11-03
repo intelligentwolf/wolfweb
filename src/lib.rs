@@ -9,6 +9,7 @@ mod actions;
 mod app;
 mod backgrounds;
 mod branding;
+mod default_browser;
 mod defaults;
 #[cfg(target_os = "linux")]
 mod desktop;

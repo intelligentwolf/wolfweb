@@ -79,6 +79,14 @@ pub fn api(cmd: &str, params: &Params) -> Reply {
             }
         }
         // Blocking thread.
+        "default-browser/status" => match crate::default_browser::is_default() {
+            Ok(is_default) => Reply::json(&json!({ "ok": true, "isDefault": is_default })),
+            Err(e) => Reply::error(500, &e),
+        },
+        "default-browser/set" => match crate::default_browser::make_default() {
+            Ok(message) => Reply::json(&json!({ "ok": true, "message": message })),
+            Err(e) => Reply::error(500, &e),
+        },
         "wolfmail/open" => match open_wolfmail() {
             Ok(()) => Reply::json(&json!({ "ok": true })),
             Err(e) => Reply::error(404, &e),
@@ -97,10 +105,10 @@ fn open_wolfmail() -> Result<(), String> {
     const NOT_FOUND: &str = "WolfMail isn't installed on this computer. Get it at github.com/intelligentwolf/wolfmail/releases.";
     #[cfg(target_os = "linux")]
     {
-        if let Some(exe) = find_on_path("wolfmail") {
+        if let Some(exe) = crate::util::find_program("wolfmail") {
             return spawn(&exe, &[]);
         }
-        if find_on_path("flatpak").is_some() {
+        if crate::util::find_program("flatpak").is_some() {
             let installed = std::process::Command::new("flatpak")
                 .args(["info", "uk.co.intelligentwolf.wolfmail"])
                 .stdout(std::process::Stdio::null())
@@ -139,17 +147,6 @@ fn open_wolfmail() -> Result<(), String> {
         }
         Err(NOT_FOUND.to_string())
     }
-}
-
-/// PATH plus the usual install folders (a WolfWeb started from the desktop menu may not have ~/.local/bin on PATH).
-#[cfg(target_os = "linux")]
-fn find_on_path(name: &str) -> Option<PathBuf> {
-    let mut dirs: Vec<PathBuf> = std::env::var_os("PATH").map(|p| std::env::split_paths(&p).collect()).unwrap_or_default();
-    if let Some(home) = dirs::home_dir() {
-        dirs.push(home.join(".local/bin"));
-    }
-    dirs.extend(["/usr/local/bin", "/usr/bin"].map(PathBuf::from));
-    dirs.into_iter().map(|d| d.join(name)).find(|p| p.is_file())
 }
 
 #[cfg(any(target_os = "linux", target_os = "windows"))]

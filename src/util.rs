@@ -1,5 +1,18 @@
 //! Small shared helpers.
 
+/// A program on PATH, or in the usual install folders (a WolfWeb started from the desktop menu may not have
+/// ~/.local/bin on PATH).
+#[cfg(target_os = "linux")]
+pub fn find_program(name: &str) -> Option<std::path::PathBuf> {
+    let mut dirs: Vec<std::path::PathBuf> =
+        std::env::var_os("PATH").map(|p| std::env::split_paths(&p).collect()).unwrap_or_default();
+    if let Some(home) = dirs::home_dir() {
+        dirs.push(home.join(".local/bin"));
+    }
+    dirs.extend(["/usr/local/bin", "/usr/bin"].map(std::path::PathBuf::from));
+    dirs.into_iter().map(|d| d.join(name)).find(|p| p.is_file())
+}
+
 /// Turn what the user typed into a URL: a URL as-is, a bare host gets https://, anything else is a Google search.
 pub fn url_from_input(input: &str) -> String {
     let text = input.trim();

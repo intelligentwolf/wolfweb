@@ -86,3 +86,11 @@ body.has-bg .hint kbd { color: var(--foreground); text-shadow: none; }
 .dialog-row.end { justify-content: flex-end; }
 
 .link-icon { vertical-align: -3px; border-radius: 4px; }
+
+/* Default-browser question */
+.default-ask { display: grid; grid-template-columns: auto 1fr; gap: 10px 14px; align-items: center; padding: 14px 16px; position: relative; z-index: 1; }
+.default-ask img { border-radius: 50%; grid-row: span 2; }
+.default-ask p { margin: 0; font-size: 15px; }
+.default-ask-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.default-ask .msg { grid-column: 1 / -1; }
+.default-ask[hidden] { display: none; }

@@ -1,7 +1,7 @@
 // WolfWeb's switchable features — all on to start with; WolfWeb settings (settings.html) turns them off.
 // eslint-disable-next-line no-unused-vars
 const WOLFWEB_FEATURES = {
-  defaults: { menuBar: true, dailyButton: true, statusBar: true, gestures: true },
+  defaults: { menuBar: true, dailyButton: true, statusBar: true, gestures: true, askDefault: true },
   async get() {
     const { features } = await chrome.storage.local.get({ features: {} });
     return { ...WOLFWEB_FEATURES.defaults, ...(features || {}) };

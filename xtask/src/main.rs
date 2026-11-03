@@ -165,5 +165,15 @@ fn bundle(release: bool) -> Result<PathBuf> {
     )
     .map_err(|e| anyhow::anyhow!("{e:?}"))?;
     copy_tree(&root.join("extension"), &app.join("Contents/Resources/extension"))?;
+    // Declare WolfWeb a handler for web addresses, so Launch Services lets it be the default browser
+    // (src/default_browser.rs). plutil ships with macOS.
+    let status = Command::new("plutil")
+        .args(["-insert", "CFBundleURLTypes", "-json", r#"[{"CFBundleURLName":"Web site URL","CFBundleURLSchemes":["http","https"]}]"#])
+        .arg(app.join("Contents/Info.plist"))
+        .status()
+        .context("couldn't run plutil")?;
+    if !status.success() {
+        bail!("plutil couldn't add the URL types to Info.plist");
+    }
     Ok(app)
 }

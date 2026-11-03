@@ -43,6 +43,35 @@
     }),
   );
 
+  // Default browser: state and the button (src/default_browser.rs does the work).
+  async function defaultApi(cmd) {
+    const res = await fetch(`wolfweb://app/api/${cmd}`, { cache: "no-store" });
+    const body = await res.json().catch(() => null);
+    if (!res.ok || !body || body.ok === false) throw new Error((body && body.error) || `WolfWeb refused that (${res.status}).`);
+    return body;
+  }
+  async function showDefault() {
+    try {
+      const { isDefault } = await defaultApi("default-browser/status");
+      document.getElementById("default-state").textContent = isDefault ? "WolfWeb is your default browser." : "WolfWeb isn't your default browser.";
+      document.getElementById("make-default").hidden = isDefault;
+    } catch (e) {
+      document.getElementById("default-state").textContent = "Couldn't check the default browser.";
+      errorEl.textContent = e.message;
+    }
+  }
+  document.getElementById("make-default").addEventListener("click", async () => {
+    try {
+      const { message } = await defaultApi("default-browser/set");
+      statusEl.textContent = message;
+      await showDefault();
+    } catch (e) {
+      errorEl.textContent = e.message;
+    }
+  });
+  window.addEventListener("focus", showDefault);
+  showDefault();
+
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === "local" && (changes.features || changes.statusBarHidden)) render();
   });

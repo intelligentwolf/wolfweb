@@ -10,6 +10,17 @@
 </head>
 <body>
   <main class="home">
+    <section id="default-ask" class="default-ask card" aria-labelledby="default-ask-text" hidden>
+      <img src="icons/wolfweb-64.png" alt="" width="36" height="36">
+      <p id="default-ask-text"><strong>WolfWeb isn't your default browser.</strong> Make it the one links open in?</p>
+      <div class="default-ask-actions">
+        <button id="default-yes" class="btn btn-primary" type="button">Make WolfWeb the default</button>
+        <button id="default-later" class="btn" type="button">Not now</button>
+        <button id="default-never" class="btn" type="button">Don't ask again</button>
+      </div>
+      <p id="default-status" class="msg msg-ok" role="status" aria-live="polite"></p>
+      <p id="default-error" class="msg msg-err" role="alert" aria-live="assertive"></p>
+    </section>
     <h1 class="brand"><img src="icons/wolfweb-128.png" alt="" width="56" height="56"><span class="font-title">WolfWeb</span></h1>
 
     <form class="search" action="https://www.google.com/search" method="get" role="search">
@@ -79,6 +90,7 @@
   <script src="features.js"></script>
   <script src="menubar.js"></script>
   <script src="newtab.js"></script>
+  <script src="default-browser.js"></script>
   <script src="ntp-background.js"></script>
 </body>
 </html>

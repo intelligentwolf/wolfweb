@@ -71,7 +71,7 @@ enum Thread {
 }
 
 fn thread_for(cmd: &str) -> Option<Thread> {
-    if crate::import::is_api_command(cmd) || cmd == "wolfmail/open" || cmd.starts_with("backgrounds/") {
+    if crate::import::is_api_command(cmd) || cmd == "wolfmail/open" || cmd.starts_with("backgrounds/") || cmd.starts_with("default-browser/") {
         Some(Thread::Blocking)
     } else if cmd == "browser/command" || cmd == "pdf/save" {
         Some(Thread::Ui)
