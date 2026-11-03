@@ -16,6 +16,10 @@ case "$STEP" in
   build)
     # chromiumembedded.github.io/cef/automated_build_setup.html, Linux 64-bit example.
     export GN_DEFINES="is_official_build=true use_sysroot=true symbol_level=1 is_cfi=false"
+    # H.264 / AAC (Facebook, Instagram, most news video): stock CEF leaves them out. The args are Chromium's own:
+    # build/config/features.gni:31 proprietary_codecs, third_party/ffmpeg/ffmpeg_options.gni:24 ffmpeg_branding
+    # ("Chromium" or "Chrome"; Chrome's FFmpeg carries the extra decoders).
+    export GN_DEFINES="$GN_DEFINES proprietary_codecs=true ffmpeg_branding=Chrome"
     export CEF_ARCHIVE_FORMAT=tar.bz2
     # 8 cores / 11 GB RAM + 12 GB swap on wolf-server: one link at a time keeps the official (ThinLTO) links in memory.
     export GN_DEFINES="$GN_DEFINES concurrent_links=1"

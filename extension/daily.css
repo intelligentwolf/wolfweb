@@ -75,13 +75,56 @@ input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--iw-red);
 }
 @media (max-width: 560px) { .cols { column-count: 1; } }
 
-/* Print / PDF: a broadsheet-like A3 page, no browser chrome, images kept. */
-@page { size: A3 portrait; margin: 12mm; }
+/* Print / PDF: a broadsheet on A3. The screen paper is replaced by #print-edition (daily.js buildPrintEdition):
+   page 1 is the front page, the inside pages run every section in five columns. The page footer (name, date,
+   page number) is an @page rule daily.js writes, since it carries the paper's own name. */
+@page { size: A3 portrait; margin: 12mm 12mm 14mm; }
+/* The printed edition's own layout. It's laid out on screen only while daily.js measures the front page
+   (.measuring: off-screen at the A3 text width, 297 − 2 × 12 mm). */
+.print-edition { display: none; font: 9.5pt/1.36 var(--serif); color: #111; }
+.print-edition.measuring { display: block; position: absolute; left: -20000px; top: 0; width: 273mm; visibility: hidden; }
+.print-edition h1, .print-edition h2, .print-edition h3, .print-edition p { margin: 0; }
+.print-edition img { display: block; width: 100%; object-fit: cover; filter: grayscale(0.15); }
+.print-edition p { text-align: justify; hyphens: auto; orphans: 2; widows: 2; }
+
+/* Front page */
+.p-front { break-after: page; }
+.p-mast { text-align: center; border-bottom: 3px double #111; padding-bottom: 2mm; margin-bottom: 5mm; }
+.p-ears { font: 600 8pt var(--font-sans); letter-spacing: 0.06em; text-transform: uppercase; color: #555; }
+.p-name { font: 700 64pt/1 var(--serif); letter-spacing: -0.01em; margin: 2mm 0 !important; }
+.p-dateline { border-top: 1px solid #111; padding: 1mm 0 0; font: 600 9pt var(--font-sans); text-transform: uppercase; letter-spacing: 0.05em; }
+.p-kicker { font: 700 8.5pt var(--font-sans); letter-spacing: 0.08em; text-transform: uppercase; color: #9c1414; margin-bottom: 1mm; }
+.p-lead { border-bottom: 1px solid #111; padding-bottom: 4mm; margin-bottom: 4mm; }
+.p-lead .p-story { column-count: 3; column-gap: 6mm; column-rule: 1px solid #bbb; }
+.p-lead .p-story img { column-span: all; height: 110mm; margin-bottom: 3mm; }
+.p-lead .p-story h3 { column-span: all; font: 700 34pt/1.05 var(--serif); margin-bottom: 2mm; }
+.p-lead .p-story .p-byline { column-span: all; }
+.p-lead .p-story p { font-size: 10.5pt; margin-bottom: 1.6mm; }
+.p-tops-title, .p-index h2, .p-section {
+  font: 700 10pt var(--font-sans) !important; letter-spacing: 0.1em; text-transform: uppercase;
+  border-top: 3px solid #111; border-bottom: 1px solid #111; padding: 1mm 0; margin-bottom: 3mm !important;
+}
+.p-tops { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4mm 6mm; margin-bottom: 4mm; }
+.p-tops-title { grid-column: 1 / -1; }
+.p-teaser { break-inside: avoid; }
+.p-teaser img { height: 32mm; margin-bottom: 1.5mm; }
+.p-teaser h3 { font: 700 13pt/1.12 var(--serif); margin-bottom: 1mm; }
+.p-turn { font: 700 8pt var(--font-sans) !important; color: #9c1414; margin-top: 1mm !important; text-align: left !important; }
+.p-index ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 1mm 8mm; font: 600 9pt var(--font-sans); }
+
+/* Inside pages: the sections flow on in five columns; stories may run on into the next column, but a headline
+   stays with its first lines. */
+.p-inside { column-count: 5; column-gap: 5mm; column-rule: 1px solid #bbb; column-fill: auto; }
+.p-section { column-span: all; margin-top: 2mm !important; break-after: avoid; }
+.p-story { margin-bottom: 4mm; }
+.p-story img { max-height: 45mm; margin-bottom: 1.5mm; break-inside: avoid; }
+.p-inside .p-story h3 { font: 700 12.5pt/1.12 var(--serif); margin-bottom: 1mm; break-after: avoid; }
+.p-byline { font: italic 8.5pt var(--serif); color: #444; margin-bottom: 1mm !important; break-after: avoid; text-align: left !important; }
+.p-story p { margin-bottom: 1.4mm; }
+.p-source { font: 7.5pt var(--font-sans) !important; color: #666; text-align: left !important; word-break: break-all; }
 @media print {
-  .no-print { display: none !important; }
-  body { background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .paper { max-width: none; margin: 0; padding: 0; box-shadow: none; background: #fff; }
-  .cols { column-count: 5; }
-  .paper-name { font-size: 96px; }
-  .lead { break-inside: avoid; }
+  .no-print, .paper, .toolbar, #status, #error, .setup { display: none !important; }
+  html, body { background: #fff !important; color: #111; margin: 0; }
+  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .print-edition { display: block; }
 }

@@ -325,8 +325,134 @@
         return s;
       }),
     );
+    buildPrintEdition(edition, lead);
     errorEl.textContent = edition.failed.length ? `Couldn't reach: ${edition.failed.join(", ")}` : "";
     if (!edition.sections.length) errorEl.textContent = "No stories came back — check your connection, then press “Fetch today's news”.";
+  }
+
+  // ── The printed edition ────────────────────────────────────────────────────────────────────────────────────
+  // A broadsheet in print: page 1 is the front page (masthead, the lead story in full, six teasers taken from the
+  // sections in turn, and an index); the inside pages run every section in five columns. daily.css lays it out on
+  // A3 with the page number at the foot of each page.
+  const TEASER_WORDS = 60;
+  const TEASERS = 6;
+
+  function words(text, n) {
+    const w = text.split(/\s+/);
+    return w.length <= n ? text : `${w.slice(0, n).join(" ")}…`;
+  }
+
+  function printStory(s, { teaser = false, image = true } = {}) {
+    const art = el("article", teaser ? "p-teaser" : "p-story");
+    if (image && s.image) {
+      const img = el("img");
+      img.alt = "";
+      img.src = s.image;
+      img.addEventListener("error", () => img.remove());
+      art.appendChild(img);
+    }
+    art.appendChild(el("h3", "", s.headline));
+    const by = [s.source, s.date ? new Date(s.date).toLocaleDateString(undefined, { day: "numeric", month: "short" }) : ""].filter(Boolean).join(" · ");
+    if (by) art.appendChild(el("p", "p-byline", by));
+    const paras = s.paragraphs && s.paragraphs.length ? s.paragraphs : s.summary ? [s.summary] : [];
+    if (teaser) {
+      if (paras.length) art.appendChild(el("p", "", words(paras.join(" "), TEASER_WORDS)));
+      art.appendChild(el("p", "p-turn", `Continued inside: ${s.section}`));
+    } else {
+      paras.forEach((t) => art.appendChild(el("p", "", t)));
+      art.appendChild(el("p", "p-source", `Full story: ${s.link.replace(/^https?:\/\/(www\.)?/, "").slice(0, 70)}`));
+    }
+    return art;
+  }
+
+  // The front page must be one sheet: A3's 420 mm less the 12 mm top and 14 mm bottom margins (daily.css @page),
+  // with 2 mm to spare for rounding. Measured off-screen at the printed width. Things give way gently, in order:
+  // pictures on the second row of teasers, a shorter lead photo, the last row of teasers (whole, so the grid stays
+  // even), then the lead's closing paragraphs.
+  const FRONT_HEIGHT_MM = 420 - 12 - 14 - 2;
+  const LEAD_PHOTO_MIN_MM = 70;
+
+  function fitFront(front) {
+    const root = $("print-edition");
+    root.classList.add("measuring");
+    try {
+      const max = (FRONT_HEIGHT_MM * 96) / 25.4; // CSS px per mm
+      const fits = () => front.getBoundingClientRect().height <= max;
+      const teasers = () => [...front.querySelectorAll(".p-teaser")];
+      if (!fits()) teasers().slice(3).forEach((t) => t.querySelector("img")?.remove());
+      const photo = front.querySelector(".p-lead img");
+      if (photo) {
+        const mm = (px) => (px * 25.4) / 96;
+        for (let h = mm(photo.getBoundingClientRect().height) - 5; !fits() && h >= LEAD_PHOTO_MIN_MM; h -= 5) photo.style.height = `${h}mm`;
+      }
+      while (!fits() && teasers().length > 3) {
+        const t = teasers();
+        t.slice(t.length - (t.length % 3 || 3)).forEach((n) => n.remove());
+      }
+      const leadParas = () => [...front.querySelectorAll(".p-lead .p-story > p:not(.p-byline):not(.p-source)")];
+      while (!fits() && leadParas().length > 1) leadParas().pop().remove();
+    } finally {
+      root.classList.remove("measuring");
+    }
+  }
+
+  function buildPrintEdition(edition, lead) {
+    const root = $("print-edition");
+    root.replaceChildren();
+    const name = settings.masthead || DEFAULTS.masthead;
+    const dateText = new Date(`${edition.date}T12:00:00`).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    // The running footer: an @page margin box can't read the page's data, so the rule is written with the text in it.
+    let foot = $("print-foot");
+    if (!foot) {
+      foot = el("style");
+      foot.id = "print-foot";
+      document.head.appendChild(foot);
+    }
+    foot.textContent = `@page { @bottom-center { content: ${JSON.stringify(`${name} · ${dateText} · Page `)} counter(page) " of " counter(pages); font: 8pt sans-serif; color: #555; } }`;
+
+    // Front page.
+    const front = el("section", "p-front");
+    const mast = el("header", "p-mast");
+    mast.appendChild(el("div", "p-ears", settings.topics.length ? `About: ${settings.topics.join(", ")}` : "Made by WolfWeb"));
+    mast.appendChild(el("h1", "p-name", name));
+    mast.appendChild(el("div", "p-dateline", dateText));
+    front.appendChild(mast);
+    if (lead) {
+      const leadBox = el("div", "p-lead");
+      leadBox.appendChild(el("div", "p-kicker", lead.section));
+      leadBox.appendChild(printStory(lead));
+      front.appendChild(leadBox);
+    }
+    // Six teasers (two rows of three) for a full front page: each section's top story, then each one's next, and so on.
+    const queues = edition.sections.map((sec) => sec.stories.filter((st) => st !== lead));
+    const tops = [];
+    for (let i = 0; tops.length < TEASERS && queues.some((q) => i < q.length); i++) {
+      queues.forEach((q) => q[i] && tops.length < TEASERS && tops.push(q[i]));
+    }
+    if (tops.length) {
+      const box = el("div", "p-tops");
+      box.appendChild(el("h2", "p-tops-title", "Today's top stories"));
+      tops.forEach((st) => box.appendChild(printStory(st, { teaser: true })));
+      front.appendChild(box);
+    }
+    const index = el("div", "p-index");
+    index.appendChild(el("h2", "", "Inside"));
+    const ul = el("ul");
+    edition.sections.forEach((sec) => ul.appendChild(el("li", "", `${sec.name} — ${sec.stories.filter((st) => st !== lead).length} stories`)));
+    index.appendChild(ul);
+    front.appendChild(index);
+    root.appendChild(front);
+    fitFront(front);
+
+    // Inside pages.
+    const inside = el("section", "p-inside");
+    edition.sections.forEach((sec) => {
+      const stories = sec.stories.filter((st) => st !== lead);
+      if (!stories.length) return;
+      inside.appendChild(el("h2", "p-section", sec.name));
+      stories.forEach((st, i) => inside.appendChild(printStory(st, { image: i === 0 })));
+    });
+    root.appendChild(inside);
   }
 
   async function refresh() {
