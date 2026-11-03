@@ -56,7 +56,10 @@ wrap_app! {
                 | SchemeOptions::SECURE.get_raw()
                 | SchemeOptions::CORS_ENABLED.get_raw()
                 | SchemeOptions::FETCH_ENABLED.get_raw();
-            registrar.add_custom_scheme(Some(&CefString::from(crate::scheme::SCHEME)), options as i32);
+            // get_raw() is u32 on Linux/macOS but i32 on Windows (MSVC enums are int) — the cast is a no-op there.
+            #[allow(clippy::unnecessary_cast)]
+            let options = options as i32;
+            registrar.add_custom_scheme(Some(&CefString::from(crate::scheme::SCHEME)), options);
         }
 
         fn resource_bundle_handler(&self) -> Option<ResourceBundleHandler> {
