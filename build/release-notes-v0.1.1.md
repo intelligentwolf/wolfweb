@@ -18,9 +18,9 @@ The Linux engine is published as the `cef-156.0.15+gcf671c0+chromium-156.0.8078.
 
 | System | File | Status |
 |---|---|---|
-| Linux (x86-64) | `WolfWeb-v0.1.0-linux-x86_64.tar.gz` | Tested on Omarchy (Arch) and Nobara 44 (Fedora) |
-| Windows (x86-64) | `WolfWeb-v0.1.0-windows-x86_64.zip` | **Not tested yet.** Uses Chromium's standard engine (no H.264, no menu bar) |
-| macOS (Apple silicon) | `WolfWeb-v0.1.0-macos-arm64.zip` | **Not tested yet.** Uses Chromium's standard engine; ad-hoc signed (right-click → Open the first time) |
+| Linux (x86-64) | `WolfWeb-v0.1.1-linux-x86_64.tar.gz` | Tested on Omarchy (Arch) and Nobara 44 (Fedora) |
+| Windows (x86-64) | `WolfWeb-v0.1.1-windows-x86_64.zip` | **Not tested yet.** Uses Chromium's standard engine (no H.264, no menu bar) |
+| macOS (Apple silicon) | `WolfWeb-v0.1.1-macos-arm64.zip` | **Not tested yet.** Uses Chromium's standard engine; ad-hoc signed (right-click → Open the first time) |
 
 **Linux:** unpack the archive anywhere (for example `~/.local/opt`) and run `wolfweb` inside it.
 
@@ -30,7 +30,7 @@ Every file has a SHA-256 checksum in `SHA256SUMS`, a keyless cosign signature (`
 
 ```
 sha256sum -c SHA256SUMS --ignore-missing
-gh attestation verify WolfWeb-v0.1.0-linux-x86_64.tar.gz --repo intelligentwolf/wolfweb
+gh attestation verify WolfWeb-v0.1.1-linux-x86_64.tar.gz --repo intelligentwolf/wolfweb
 ```
 
 ## Known limits
