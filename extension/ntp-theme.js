@@ -1,5 +1,6 @@
-// The new-tab page's look comes from Chrome's "Customize Chrome" panel — one place to choose it. "Customise" opens
-// that panel; the background picture chosen there (Chrome's collections, or an uploaded picture) is shown here,
+// The new-tab page's look comes from Chrome's "Customize Chrome" panel — one place to choose it. Chrome's own
+// "Customize WolfWeb" button (the footer it adds under an extension's new-tab page) opens that panel; the background
+// picture chosen there (Chrome's collections, or an uploaded picture) is shown here,
 // read by WolfWeb's Rust side (src/chrome_theme.rs). Light or dark follows Chrome by itself (prefers-color-scheme).
 // While the page is showing it checks again every couple of seconds, so a picture chosen in the panel appears
 // straight away; nothing changes on the page unless the choice did.
@@ -7,7 +8,6 @@
   const $ = (id) => document.getElementById(id);
   const body = document.body;
   const credit = $("credit");
-  const errorEl = $("error");
   const CHECK_MS = 2000;
   let shown = ""; // the choice on screen, as JSON
   let objectUrl = null;
@@ -77,15 +77,6 @@
       // Not something the user did: the page keeps its current look (the next check tries again).
     }
   }
-
-  $("customise").addEventListener("click", async () => {
-    errorEl.textContent = "";
-    try {
-      await api("browser/command", { name: "customize-chrome" });
-    } catch (e) {
-      errorEl.textContent = `Couldn't open Customize Chrome: ${e.message}`;
-    }
-  });
 
   check();
   setInterval(() => {
