@@ -71,9 +71,9 @@ enum Thread {
 }
 
 fn thread_for(cmd: &str) -> Option<Thread> {
-    if crate::import::is_api_command(cmd) || cmd == "wolfmail/open" || cmd.starts_with("backgrounds/") || cmd.starts_with("default-browser/") {
+    if crate::import::is_api_command(cmd) || cmd == "wolfmail/open" || cmd == "chrome-theme/image" || cmd.starts_with("default-browser/") {
         Some(Thread::Blocking)
-    } else if cmd == "browser/command" || cmd == "pdf/save" || cmd == "engine/features" || cmd == "menu-bar/set" {
+    } else if cmd == "browser/command" || cmd == "pdf/save" || cmd == "engine/features" || cmd == "menu-bar/set" || cmd == "chrome-theme" {
         Some(Thread::Ui)
     } else {
         None
@@ -272,8 +272,6 @@ wrap_task! {
             }
             let reply = if crate::import::is_api_command(&self.cmd) {
                 crate::import::api(&self.cmd, &self.params)
-            } else if self.cmd.starts_with("backgrounds/") {
-                crate::backgrounds::api(&self.cmd, &self.params)
             } else {
                 crate::actions::api(&self.cmd, &self.params)
             };

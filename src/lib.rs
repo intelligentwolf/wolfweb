@@ -7,7 +7,7 @@
 
 mod actions;
 mod app;
-mod backgrounds;
+mod chrome_theme;
 mod branding;
 mod default_browser;
 mod defaults;

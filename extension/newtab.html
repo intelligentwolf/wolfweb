@@ -62,36 +62,16 @@
   </main>
 
   <p id="credit" class="credit" hidden></p>
-  <button id="customise" class="customise" type="button" aria-haspopup="dialog">
+  <button id="customise" class="customise" type="button" title="Background, colours, light or dark — in Customize Chrome">
     <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M3 14.5V17h2.5L15 7.5 12.5 5 3 14.5zM16.7 5.8a.9.9 0 000-1.3l-1.2-1.2a.9.9 0 00-1.3 0l-1 1L15.7 6.8l1-1z" fill="currentColor"/></svg>
     Customise
   </button>
 
-  <div id="dialog-backdrop" class="backdrop" hidden>
-    <div id="dialog" class="dialog card" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
-      <h2 id="dialog-title">Background</h2>
-      <fieldset class="choices">
-        <legend class="sr-only">Background</legend>
-        <label><input type="radio" name="bg" value="none"> <span><strong>None</strong><br><span class="muted">WolfWeb's own colours</span></span></label>
-        <label><input type="radio" name="bg" value="daily"> <span><strong>Picture of the day</strong><br><span class="muted">A new photo every day from Wikimedia Commons, credited on the page</span></span></label>
-        <label><input type="radio" name="bg" value="folder"> <span><strong>From my Pictures folder</strong><br><span class="muted">A different one of your photos each day</span></span></label>
-        <label><input type="radio" name="bg" value="custom"> <span><strong>A picture I choose</strong><br><span class="muted">Pick any photo on this computer</span></span></label>
-      </fieldset>
-      <div class="dialog-row">
-        <input id="bg-file" type="file" accept="image/*" hidden>
-        <button id="bg-choose" class="btn" type="button" hidden>Choose a picture…</button>
-        <button id="bg-next" class="btn" type="button" hidden>Show another</button>
-      </div>
-      <p id="bg-status" class="msg msg-ok" role="status" aria-live="polite"></p>
-      <p id="bg-error" class="msg msg-err" role="alert" aria-live="assertive"></p>
-      <div class="dialog-row end"><button id="dialog-close" class="btn btn-primary" type="button">Done</button></div>
-    </div>
-  </div>
   <script src="features.js"></script>
   <script src="engine.js"></script>
   <script src="menubar.js"></script>
   <script src="newtab.js"></script>
   <script src="default-browser.js"></script>
-  <script src="ntp-background.js"></script>
+  <script src="ntp-theme.js"></script>
 </body>
 </html>

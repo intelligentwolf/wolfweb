@@ -202,9 +202,13 @@ wrap_request_context_handler! {
     impl RequestContextHandler {
         fn on_request_context_initialized(&self, request_context: Option<&mut RequestContext>) {
             if let Some(context) = request_context {
-                // cef_request_context.h:337-345 — a non-mode variant applies |user_color| in the current
+                // WolfWeb's red until the user picks a colour in Customize Chrome, which is then kept: this used
+                // to be set at every start, undoing their choice. cef_request_context.h:355-360 — the current
+                // colour, or 0 for the default; :337-345 — a non-mode variant applies |user_color| in the current
                 // (system) light/dark mode.
-                context.set_chrome_color_scheme(ColorVariant::TONAL_SPOT, BRAND_ARGB);
+                if context.chrome_color_scheme_color() == 0 {
+                    context.set_chrome_color_scheme(ColorVariant::TONAL_SPOT, BRAND_ARGB);
+                }
                 // WolfWeb opens the startup windows itself, following the user's "On startup" choice; Chromium's
                 // own handling of it is held off for this start (startup.rs).
                 let choice = crate::startup::take(context);

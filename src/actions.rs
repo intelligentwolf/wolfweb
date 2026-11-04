@@ -51,6 +51,7 @@ pub fn chrome_command(name: &str) -> Option<i32> {
         "settings" => 40015,                 // IDC_OPTIONS [193]
         "about" => 40018,                    // IDC_ABOUT [196]
         "extensions" => 40022,               // IDC_MANAGE_EXTENSIONS [200]
+        "customize-chrome" => 40283,         // IDC_SHOW_CUSTOMIZE_CHROME_SIDE_PANEL [237]
         "tab-search" => 52500,               // IDC_TAB_SEARCH [395]
         _ => return None,
     })
@@ -79,6 +80,12 @@ pub fn api(cmd: &str, params: &Params) -> Reply {
                 Err(e) => Reply::error(409, e),
             }
         }
+        "chrome-theme" => match profile_context() {
+            Some(context) => crate::chrome_theme::current(&context),
+            None => Reply::error(409, "Open a WolfWeb window first."),
+        },
+        // Blocking thread.
+        "chrome-theme/image" => crate::chrome_theme::uploaded_image(params),
         "engine/features" => {
             let Some(context) = profile_context() else {
                 return Reply::error(409, "Open a WolfWeb window first.");
@@ -214,6 +221,7 @@ mod tests {
         assert_eq!(chrome_command("vertical-tabs"), Some(34058));
         assert_eq!(chrome_command("split-view"), Some(34057));
         assert_eq!(chrome_command("find"), Some(37000));
+        assert_eq!(chrome_command("customize-chrome"), Some(40283));
         assert_eq!(chrome_command("new-private-window"), Some(34001));
         assert_eq!(chrome_command("format-disk"), None);
         assert_eq!(chrome_command(""), None);
