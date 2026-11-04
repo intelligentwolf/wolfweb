@@ -47,6 +47,12 @@ const ACK_NTP: &str = "ack_ntp_bubble";
 ///   *is* WolfWeb, not something that took it over; answering "change it back" disables the whole built-in extension
 ///   (extension_settings_overridden_dialog.cc:330-334 DISABLE_USER_ACTION) and with it import, quick commands, notes…
 ///   (observed: disable_reasons [1] after that prompt).
+/// - On a brand-new profile (no Preferences yet), answer it before Chromium's first run: without this the question
+///   came up on a new install, and "change it back" turned WolfWeb's own pages off (observed on a fresh Nobara
+///   install, 2026-11-04: disable_reasons [1], the Daily and settings "blocked"). An entry with no "location" is
+///   skipped when Chromium loads extensions (extension_prefs.cc:1574-1576 GetInstalledInfoHelper), and installing
+///   from --load-extension updates that same entry, keeping what's already in it (extension_prefs.cc:1498-1512
+///   OnExtensionInstalled, ScopedExtensionPrefUpdate).
 /// - Re-enable it if it was disabled anyway.
 /// - Forget the entry if it was re-registered as an unpacked extension (pressing Reload in chrome://extensions does
 ///   that), which Chromium disables outside developer mode (chrome/browser/extensions/extension_management.cc:437-456,
@@ -57,6 +63,13 @@ pub fn repair_profile(root: &std::path::Path) {
         return;
     }
     let prefs = root.join("Default").join("Preferences");
+    if !prefs.exists() {
+        let seeded = std::fs::create_dir_all(root.join("Default")).and_then(|_| std::fs::write(&prefs, fresh_prefs()));
+        if seeded.is_err() {
+            eprintln!("wolfweb: couldn't prepare the new profile; Chromium may ask about WolfWeb's new-tab page");
+        }
+        return;
+    }
     let Ok(text) = std::fs::read_to_string(&prefs) else { return };
     if let Some(fixed) = repaired_prefs(&text) {
         let tmp = prefs.with_extension("wolfweb-tmp");
@@ -66,12 +79,19 @@ pub fn repair_profile(root: &std::path::Path) {
     }
 }
 
+/// A new profile's Preferences: only the built-in extension's new-tab question, answered.
+fn fresh_prefs() -> String {
+    serde_json::json!({ "extensions": { "settings": { ID: { ACK_NTP: true } } } }).to_string()
+}
+
 /// The repaired Preferences JSON, or None when nothing needs changing.
 fn repaired_prefs(text: &str) -> Option<String> {
     let mut v: serde_json::Value = serde_json::from_str(text).ok()?;
     let settings = v.pointer_mut("/extensions/settings")?.as_object_mut()?;
     let entry = settings.get_mut(ID)?.as_object_mut()?;
-    if entry.get("location").and_then(|l| l.as_i64()) != Some(LOCATION_COMMAND_LINE) {
+    // Not registered yet (only fresh_prefs' answer so far): nothing to repair.
+    let location = entry.get("location")?;
+    if location.as_i64() != Some(LOCATION_COMMAND_LINE) {
         settings.remove(ID);
         return serde_json::to_string(&v).ok();
     }
@@ -106,6 +126,10 @@ mod tests {
         assert!(fixed["extensions"]["settings"][ID].get("disable_reasons").is_none());
         assert_eq!(fixed["extensions"]["settings"][ID]["ack_ntp_bubble"], true);
         // Re-registered as unpacked: forgotten, other extensions kept.
+        // A new profile's seed is left as it is until Chromium registers the extension.
+        assert!(repaired_prefs(&fresh_prefs()).is_none());
+        let seed: serde_json::Value = serde_json::from_str(&fresh_prefs()).unwrap();
+        assert_eq!(seed["extensions"]["settings"][ID]["ack_ntp_bubble"], true);
         let unpacked = format!(r#"{{"extensions":{{"settings":{{"{ID}":{{"location":4}},"other":{{"location":4}}}}}}}}"#);
         let fixed = get(&repaired_prefs(&unpacked).unwrap());
         assert!(fixed["extensions"]["settings"].get(ID).is_none());
