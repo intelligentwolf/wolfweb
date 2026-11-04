@@ -38,7 +38,30 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
       - name: Fetch CEF
-        run: scripts/fetch-cef.sh
+        run: |
+          set -euo pipefail
+          if [ "${{ runner.os }}" != "Linux" ]; then
+            scripts/fetch-cef.sh   # Windows and macOS: CEF's standard build (WolfWeb's own is Linux-only so far)
+            exit 0
+          fi
+          # Linux: WolfWeb's own engine (build/cef/build.sh: H.264/AAC, the menu bar, the wolf logo, reported as
+          # Chrome), published by the cef workflow as the cef-<version> pre-release (cef-part.yml "Publish the CEF
+          # distribution"). No engine release for this CEF version: the release fails rather than ship the stock one.
+          cef=$(awk '/^name = "cef"$/ { getline; gsub(/"/, "", $3); print $3 }' Cargo.lock)
+          cef=${cef#*+}
+          tag=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName --jq '.[].tagName' | grep -m1 -F "cef-${cef}+") \
+            || { echo "No cef-${cef}+… release yet: run the cef workflow first." >&2; exit 1; }
+          dir=target/cef-release
+          mkdir -p "$dir"
+          gh release download "$tag" --repo "$GITHUB_REPOSITORY" --dir "$dir" --pattern '*_linux64_minimal.tar.bz2*'
+          # The .sha256 file names the archive as it was built ("<sha256>  cef_binary_…+…_minimal.tar.bz2"); give the
+          # download that name back in case GitHub changed its "+" signs, then check it.
+          sum=$(ls "$dir"/*.sha256)
+          name=$(awk '{print $2}' "$sum")
+          asset=$(ls "$dir"/*.tar.bz2)
+          [ "$(basename "$asset")" = "$name" ] || mv "$asset" "$dir/$name"
+          (cd "$dir" && sha256sum -c "$(basename "$sum")")
+          WOLFWEB_CEF_ARCHIVE="$dir/$name" scripts/fetch-cef.sh
       - name: Test
         run: cargo test --workspace
       - name: Bundle
