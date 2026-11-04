@@ -22,6 +22,8 @@
         await WOLFWEB_FEATURES.set(s.dataset.feature, on);
         // With the engine's built-in menu bar, the switch shows or hides it in every window at once.
         if (s.dataset.feature === "menuBar" && (await WOLFWEB_ENGINE.nativeMenuBar())) await WOLFWEB_ENGINE.setMenuBar(on);
+        // Likewise the engine's built-in status bar strip.
+        if (s.dataset.feature === "statusBar" && (await WOLFWEB_ENGINE.nativeStatusBar())) await WOLFWEB_ENGINE.setStatusBar(on);
         await render();
         const name = document.getElementById(`l-${s.dataset.feature}`).textContent;
         statusEl.textContent = `${name} ${on ? "on" : "off"}.`;

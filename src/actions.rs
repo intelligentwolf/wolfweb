@@ -90,7 +90,11 @@ pub fn api(cmd: &str, params: &Params) -> Reply {
             let Some(context) = profile_context() else {
                 return Reply::error(409, "Open a WolfWeb window first.");
             };
-            Reply::json(&json!({ "ok": true, "nativeMenuBar": has_native_menu_bar(&context) }))
+            Reply::json(&json!({
+                "ok": true,
+                "nativeMenuBar": has_native_menu_bar(&context),
+                "nativeStatusBar": has_native_status_bar(&context),
+            }))
         }
         "menu-bar/set" => {
             let on = param(params, "on") == Some("1");
@@ -107,6 +111,23 @@ pub fn api(cmd: &str, params: &Params) -> Reply {
                 Reply::json(&json!({ "ok": true }))
             } else {
                 Reply::error(500, "WolfWeb couldn't change the menu bar setting.")
+            }
+        }
+        "status-bar/set" => {
+            let on = param(params, "on") == Some("1");
+            let Some(context) = profile_context() else {
+                return Reply::error(409, "Open a WolfWeb window first.");
+            };
+            if !has_native_status_bar(&context) {
+                return Reply::error(409, "This WolfWeb's engine has no built-in status bar.");
+            }
+            let Some(value) = crate::defaults::bool_value(on) else {
+                return Reply::error(500, "Couldn't make the setting.");
+            };
+            if crate::defaults::set_preference(&context, STATUS_BAR_PREF, value) {
+                Reply::json(&json!({ "ok": true }))
+            } else {
+                Reply::error(500, "WolfWeb couldn't change the status bar setting.")
             }
         }
         // Blocking thread.
@@ -130,6 +151,10 @@ pub fn api(cmd: &str, params: &Params) -> Reply {
 /// WolfWebMenuBar::kPrefName, registered in chrome/browser/ui/browser_ui_prefs.cc RegisterBrowserUserPrefs).
 pub const MENU_BAR_PREF: &str = "wolfweb.menu_bar";
 
+/// The profile preference WolfWeb's own engine adds for its status bar strip (build/cef/patches/
+/// wolfweb-status-bar.patch: WolfWebStatusBar::kPrefName, registered in browser_ui_prefs.cc RegisterBrowserUserPrefs).
+pub const STATUS_BAR_PREF: &str = "wolfweb.status_bar";
+
 /// The profile's request context, from any open browser (it's initialized by then; cef_browser.h GetRequestContext).
 fn profile_context() -> Option<RequestContext> {
     crate::tabs::focused_browser().and_then(|b| b.host()).and_then(|h| h.request_context())
@@ -139,6 +164,12 @@ fn profile_context() -> Option<RequestContext> {
 /// the standard CEF build doesn't (then the extension's bookmarks-bar menus stand in).
 fn has_native_menu_bar(context: &RequestContext) -> bool {
     context.has_preference(Some(&CefString::from(MENU_BAR_PREF))) != 0
+}
+
+/// Does this engine have WolfWeb's built-in status bar strip below the page? Only an engine built with the patch
+/// registers its preference; otherwise the extension draws the bar over the bottom of each page (statusbar.js).
+fn has_native_status_bar(context: &RequestContext) -> bool {
+    context.has_preference(Some(&CefString::from(STATUS_BAR_PREF))) != 0
 }
 
 /// Start WolfMail where its installers put it.

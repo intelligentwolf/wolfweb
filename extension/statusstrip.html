@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>WolfWeb status bar</title>
+  <style>
+    :root { color-scheme: light dark; }
+    html, body { margin: 0; height: 100%; overflow: hidden; }
+    body {
+      box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 0 8px 0 12px;
+      font: 12px/1 system-ui, -apple-system, "Segoe UI", sans-serif; color: #17141a; background: #f6f1e7;
+      border-top: 1px solid rgba(45, 27, 45, 0.18); user-select: none;
+    }
+    @media (prefers-color-scheme: dark) { body { color: #eceff1; background: #2e2f37; border-top-color: rgba(224, 230, 230, 0.18); } }
+    .grow { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    button { all: unset; cursor: pointer; padding: 3px 7px; border-radius: 6px; font: inherit; }
+    button:hover { background: rgba(196, 30, 30, 0.14); }
+    button:focus-visible { outline: 2px solid #c41e1e; }
+    button:disabled { opacity: 0.4; cursor: default; }
+    .zoom { display: inline-flex; align-items: center; gap: 2px; }
+    .sep { opacity: 0.35; }
+  </style>
+</head>
+<body role="status" aria-label="WolfWeb status bar">
+  <span id="page" class="grow"></span>
+  <span class="zoom">
+    <button id="zoom-out" type="button" aria-label="Zoom out">−</button>
+    <button id="zoom-reset" type="button" aria-label="Reset zoom">100%</button>
+    <button id="zoom-in" type="button" aria-label="Zoom in">+</button>
+  </span>
+  <span class="sep" aria-hidden="true">|</span>
+  <span id="clock"></span>
+  <button id="settings" type="button" aria-label="WolfWeb settings" title="WolfWeb settings">⚙</button>
+  <script src="statusstrip.js"></script>
+</body>
+</html>

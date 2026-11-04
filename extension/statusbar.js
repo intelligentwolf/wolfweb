@@ -1,6 +1,8 @@
-// WolfWeb's status bar, like Vivaldi's: a slim bar along the bottom of web pages — how long the page took, how much
-// there is to read, zoom (− / % / +) and the time. It lives in a closed shadow root so pages can't restyle it or read
-// it. Switch it off in WolfWeb settings, or hide it for one site with ×.
+// WolfWeb's status bar, like Vivaldi's: how long the page took, how much there is to read, zoom (− / % / +) and the
+// time. With WolfWeb's own engine it's a strip of the window below the page (statusstrip.html), and this script only
+// tells it about the page (statusInfo). With the standard engine this script draws it over the bottom of web pages,
+// in a closed shadow root so pages can't restyle it or read it. Switch it off in WolfWeb settings, or hide this one
+// for a site with ×.
 (() => {
   if (window.top !== window || document.contentType !== "text/html") return;
   const HEIGHT = 26;
@@ -10,8 +12,19 @@
 
   const site = location.hostname;
 
+  /** What the strip shows about this page. */
+  function pageInfo() {
+    const nav = performance.getEntriesByType("navigation")[0];
+    const words = (document.body ? document.body.innerText : "").split(/\s+/).filter(Boolean).length;
+    return { loadedMs: nav && nav.loadEventEnd > 0 ? nav.loadEventEnd : null, words };
+  }
+  chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
+    if (msg && msg.statusInfo) reply(pageInfo());
+  });
+
   async function wanted() {
-    const { features, statusBarHidden } = await chrome.storage.local.get({ features: {}, statusBarHidden: [] });
+    const { features, statusBarHidden, engine } = await chrome.storage.local.get({ features: {}, statusBarHidden: [], engine: {} });
+    if (engine && engine.nativeStatusBar) return false; // the engine's own strip shows it
     const on = (features || {}).statusBar !== false;
     return on && !(statusBarHidden || []).includes(site);
   }
@@ -106,9 +119,13 @@
   }
 
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === "local" && (changes.features || changes.statusBarHidden)) apply();
+    if (area === "local" && (changes.features || changes.statusBarHidden || changes.engine)) apply();
   });
 
   if (document.readyState === "complete") apply();
   else window.addEventListener("load", () => apply().then(fillPage), { once: true });
+  // The engine's strip asks again once the page has finished loading.
+  if (document.readyState !== "complete") {
+    window.addEventListener("load", () => chrome.runtime.sendMessage({ statusInfoChanged: true }).catch(() => {}), { once: true });
+  }
 })();

@@ -1,0 +1,270 @@
+diff -ruN a/chrome/browser/ui/browser_ui_prefs.cc b/chrome/browser/ui/browser_ui_prefs.cc
+--- a/chrome/browser/ui/browser_ui_prefs.cc	2026-11-04 09:31:01.950658065 +0000
++++ b/chrome/browser/ui/browser_ui_prefs.cc	2026-11-04 09:32:17.523836305 +0000
+@@ -115,6 +115,10 @@
+   // chrome/browser/ui/views/frame/wolfweb_menu_bar.h; WolfWeb's settings page
+   // sets it). On by default.
+   registry->RegisterBooleanPref("wolfweb.menu_bar", true);
++  // WolfWeb's status bar along the bottom of each window (WolfWebStatusBar::
++  // kPrefName, chrome/browser/ui/views/frame/wolfweb_status_bar.h; WolfWeb's
++  // settings page sets it). On by default.
++  registry->RegisterBooleanPref("wolfweb.status_bar", true);
+ 
+ #if BUILDFLAG(IS_ANDROID)
+   const uint32_t pref_registration_flags = PrefRegistry::NO_REGISTRATION_FLAGS;
+diff -ruN a/chrome/browser/ui/BUILD.gn b/chrome/browser/ui/BUILD.gn
+--- a/chrome/browser/ui/BUILD.gn	2026-11-04 09:31:01.947107221 +0000
++++ b/chrome/browser/ui/BUILD.gn	2026-11-04 09:32:17.523636951 +0000
+@@ -3551,6 +3551,8 @@
+       "views/frame/vertical_tab_strip_region_view.h",
+       "views/frame/wolfweb_menu_bar.cc",
+       "views/frame/wolfweb_menu_bar.h",
++      "views/frame/wolfweb_status_bar.cc",
++      "views/frame/wolfweb_status_bar.h",
+     ]
+ 
+     sources += get_target_outputs(":webui_name_variants")
+diff -ruN a/chrome/browser/ui/views/frame/browser_view.cc b/chrome/browser/ui/views/frame/browser_view.cc
+--- a/chrome/browser/ui/views/frame/browser_view.cc	2026-11-04 09:31:01.956998078 +0000
++++ b/chrome/browser/ui/views/frame/browser_view.cc	2026-11-04 09:32:17.524974411 +0000
+@@ -182,6 +182,7 @@
+ #include "chrome/browser/ui/views/frame/tab_strip_region_view.h"
+ #include "chrome/browser/ui/views/frame/top_container_view.h"
+ #include "chrome/browser/ui/views/frame/wolfweb_menu_bar.h"
++#include "chrome/browser/ui/views/frame/wolfweb_status_bar.h"
+ #include "chrome/browser/ui/views/frame/top_controls_slide_controller.h"
+ #include "chrome/browser/ui/views/frame/vertical_tab_strip_background_blur_backdrop.h"
+ #include "chrome/browser/ui/views/frame/vertical_tab_strip_region_view.h"
+@@ -5228,6 +5229,11 @@
+     wolfweb_menu_bar_ = AddChildView(std::make_unique<WolfWebMenuBar>(this));
+   }
+ #endif
++  // WolfWeb's status bar, in normal windows only.
++  if (GetIsNormalType()) {
++    wolfweb_status_bar_ =
++        AddChildView(std::make_unique<WolfWebStatusBar>(this));
++  }
+ 
+   // TODO(crbug.com/40664862): Remove BrowserViewLayout dependence on
+   // Widget and move to the constructor.
+@@ -5236,6 +5242,7 @@
+   // LINT.IfChange(BrowserViewLayoutViews)
+   layout_views.browser_view = this;
+   layout_views.wolfweb_menu_bar = wolfweb_menu_bar_;
++  layout_views.wolfweb_status_bar = wolfweb_status_bar_;
+   layout_views.window_scrim = window_scrim_view_;
+   layout_views.side_panel_content_transition_scrim =
+       side_panel_content_transition_scrim_view_;
+diff -ruN a/chrome/browser/ui/views/frame/browser_view.h b/chrome/browser/ui/views/frame/browser_view.h
+--- a/chrome/browser/ui/views/frame/browser_view.h	2026-11-04 09:31:01.954117718 +0000
++++ b/chrome/browser/ui/views/frame/browser_view.h	2026-11-04 09:32:17.524060406 +0000
+@@ -97,6 +97,7 @@
+ class TabStrip;
+ class TabStripRegionView;
+ class WolfWebMenuBar;
++class WolfWebStatusBar;
+ class ToolbarButtonProvider;
+ class ToolbarView;
+ class TopContainerView;
+@@ -1184,6 +1185,10 @@
+   // which has the system menu bar). Owned by the views hierarchy.
+   raw_ptr<WolfWebMenuBar> wolfweb_menu_bar_ = nullptr;
+ 
++  // WolfWeb's status bar along the bottom of normal windows, below the page.
++  // Owned by the views hierarchy.
++  raw_ptr<WolfWebStatusBar> wolfweb_status_bar_ = nullptr;
++
+   // The insertion index of the HorizontalTabStripRegionView in the BrowserView
+   // view tree. This is used to correctly reparent the tabstrip when exiting
+   // fullscreen mode. See BrowserView::ReparentTopContainerForEndOfImmersive.
+diff -ruN a/chrome/browser/ui/views/frame/layout/browser_view_layout.h b/chrome/browser/ui/views/frame/layout/browser_view_layout.h
+--- a/chrome/browser/ui/views/frame/layout/browser_view_layout.h	2026-11-04 09:31:01.961333289 +0000
++++ b/chrome/browser/ui/views/frame/layout/browser_view_layout.h	2026-11-04 09:32:17.525122158 +0000
+@@ -66,6 +66,8 @@
+   raw_ptr<views::View> main_shadow_overlay = nullptr;
+   // WolfWeb's menu bar (WolfWebMenuBar), in a row above everything else.
+   raw_ptr<views::View> wolfweb_menu_bar = nullptr;
++  // WolfWeb's status bar (WolfWebStatusBar), in a strip below everything else.
++  raw_ptr<views::View> wolfweb_status_bar = nullptr;
+   raw_ptr<views::View> top_container = nullptr;
+   raw_ptr<WebAppFrameToolbarView> web_app_frame_toolbar = nullptr;
+   raw_ptr<views::Label> web_app_window_title = nullptr;
+diff -ruN a/chrome/browser/ui/views/frame/layout/browser_view_tabbed_layout_impl.cc b/chrome/browser/ui/views/frame/layout/browser_view_tabbed_layout_impl.cc
+--- a/chrome/browser/ui/views/frame/layout/browser_view_tabbed_layout_impl.cc	2026-11-04 09:31:01.965060695 +0000
++++ b/chrome/browser/ui/views/frame/layout/browser_view_tabbed_layout_impl.cc	2026-11-04 09:32:17.525238468 +0000
+@@ -216,6 +216,8 @@
+   SidePanelContentAnimation side_panel_content_animation;
+   // WolfWeb's menu bar row; empty when it isn't shown.
+   gfx::Rect wolfweb_menu_bar_bounds;
++  // WolfWeb's status bar strip; empty when it isn't shown.
++  gfx::Rect wolfweb_status_bar_bounds;
+ };
+ 
+ BrowserViewTabbedLayoutImpl::BrowserViewTabbedLayoutImpl(
+@@ -770,6 +772,11 @@
+     const gfx::Rect& bounds = layout_data_->wolfweb_menu_bar_bounds;
+     layout.AddChild(views().wolfweb_menu_bar, bounds, !bounds.IsEmpty());
+   }
++  // WolfWeb's status bar (its strip was reserved in DoPreLayoutComputations()).
++  if (IsParentedTo(views().wolfweb_status_bar, views().browser_view)) {
++    const gfx::Rect& bounds = layout_data_->wolfweb_status_bar_bounds;
++    layout.AddChild(views().wolfweb_status_bar, bounds, !bounds.IsEmpty());
++  }
+ 
+   BrowserLayoutParams params = layout_data_->revised_params;
+   bool needs_exclusion = true;
+@@ -1536,6 +1543,28 @@
+     }
+   }
+ 
++  // WolfWeb's status bar takes a strip along the very bottom, the full width of
++  // the window; the page, side panel and vertical tab strip are laid out above
++  // it. Not in fullscreen (that includes a video played fullscreen). Insetting
++  // only the bottom leaves the frame-control exclusion areas as they are
++  // (BrowserLayoutParams::Inset shrinks them by the left/right and top insets).
++  if (IsParentedTo(views().wolfweb_status_bar, views().browser_view) &&
++      views().wolfweb_status_bar->GetVisible()) {
++    const bool fullscreen =
++        layout_data_->window_state == WindowState::kFullscreen ||
++        layout_data_->window_state == WindowState::kFullscreenWithToolbar;
++    BrowserLayoutParams& revised = layout_data_->revised_params;
++    const int height =
++        std::min(views().wolfweb_status_bar->GetPreferredSize().height(),
++                 revised.visual_client_area.height());
++    if (!fullscreen && height > 0) {
++      const gfx::Rect& area = revised.visual_client_area;
++      layout_data_->wolfweb_status_bar_bounds = gfx::Rect(
++          area.x(), area.bottom() - height, area.width(), height);
++      revised.Inset(gfx::Insets::TLBR(0, 0, height, 0));
++    }
++  }
++
+   layout_data_->horizontal_layout =
+       CalculateHorizontalLayout(layout_data_->revised_params);
+   layout_data_->organizer_panel_animation = CalculateOrganizerPanelAnimation();
+diff -ruN a/chrome/browser/ui/views/frame/wolfweb_status_bar.cc b/chrome/browser/ui/views/frame/wolfweb_status_bar.cc
+--- a/chrome/browser/ui/views/frame/wolfweb_status_bar.cc	1970-01-01 01:00:00.000000000 +0100
++++ b/chrome/browser/ui/views/frame/wolfweb_status_bar.cc	2026-11-04 09:31:54.946865418 +0000
+@@ -0,0 +1,69 @@
++// Copyright 2026 IntelligentWolf Ltd. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#include "chrome/browser/ui/views/frame/wolfweb_status_bar.h"
++
++#include "base/functional/bind.h"
++#include "base/strings/strcat.h"
++#include "base/strings/string_number_conversions.h"
++#include "chrome/browser/profiles/profile.h"
++#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
++#include "chrome/browser/ui/views/frame/browser_view.h"
++#include "components/prefs/pref_service.h"
++#include "ui/base/metadata/metadata_impl_macros.h"
++#include "ui/gfx/geometry/size.h"
++#include "url/gurl.h"
++
++namespace {
++
++// WolfWeb's built-in extension (its manifest key fixes the id).
++constexpr char kStripUrl[] =
++    "chrome-extension://fhmfanjkjkjnbognbfdiegdineklmkjm/statusstrip.html";
++
++}  // namespace
++
++WolfWebStatusBar::WolfWebStatusBar(BrowserView* browser_view)
++    : views::WebView(browser_view->browser()->GetProfile()),
++      browser_view_(browser_view) {
++  SetVisible(IsWanted());
++  pref_registrar_.Init(browser_view_->browser()->GetProfile()->GetPrefs());
++  pref_registrar_.Add(kPrefName,
++                      base::BindRepeating(&WolfWebStatusBar::OnPrefChanged,
++                                          base::Unretained(this)));
++}
++
++WolfWebStatusBar::~WolfWebStatusBar() = default;
++
++bool WolfWebStatusBar::IsWanted() const {
++  return browser_view_->browser()->GetProfile()->GetPrefs()->GetBoolean(
++      kPrefName);
++}
++
++void WolfWebStatusBar::OnPrefChanged() {
++  SetVisible(IsWanted());
++  PreferredSizeChanged();
++  browser_view_->InvalidateLayout();
++}
++
++gfx::Size WolfWebStatusBar::CalculatePreferredSize(
++    const views::SizeBounds& available_size) const {
++  // Zero height when switched off: the layout then gives it no space.
++  return IsWanted() ? gfx::Size(0, kHeight) : gfx::Size();
++}
++
++void WolfWebStatusBar::AddedToWidget() {
++  views::WebView::AddedToWidget();
++  if (loaded_) {
++    return;
++  }
++  loaded_ = true;
++  // The extension's id for this window is the browser's session id
++  // (BrowserExtensionWindowController::GetWindowId).
++  LoadInitialURL(GURL(base::StrCat(
++      {kStripUrl, "?window=",
++       base::NumberToString(browser_view_->browser()->GetSessionID().id())})));
++}
++
++BEGIN_METADATA(WolfWebStatusBar)
++END_METADATA
+diff -ruN a/chrome/browser/ui/views/frame/wolfweb_status_bar.h b/chrome/browser/ui/views/frame/wolfweb_status_bar.h
+--- a/chrome/browser/ui/views/frame/wolfweb_status_bar.h	1970-01-01 01:00:00.000000000 +0100
++++ b/chrome/browser/ui/views/frame/wolfweb_status_bar.h	2026-11-04 09:31:46.311723280 +0000
+@@ -0,0 +1,49 @@
++// Copyright 2026 IntelligentWolf Ltd. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#ifndef CHROME_BROWSER_UI_VIEWS_FRAME_WOLFWEB_STATUS_BAR_H_
++#define CHROME_BROWSER_UI_VIEWS_FRAME_WOLFWEB_STATUS_BAR_H_
++
++#include "base/memory/raw_ptr.h"
++#include "components/prefs/pref_change_registrar.h"
++#include "ui/base/metadata/metadata_header_macros.h"
++#include "ui/views/controls/webview/webview.h"
++
++class BrowserView;
++
++// WolfWeb's status bar: a strip along the bottom of a normal window, below the
++// page (which is made that much shorter), with the active tab's load time,
++// reading time and zoom, and the time. The strip shows a page of WolfWeb's
++// built-in extension (statusstrip.html), told its window's id so it can follow
++// that window's active tab with the tabs API. Hidden in fullscreen
++// (BrowserViewTabbedLayoutImpl::DoPreLayoutComputations) and when switched off
++// in WolfWeb's settings (kPrefName).
++class WolfWebStatusBar : public views::WebView {
++  METADATA_HEADER(WolfWebStatusBar, views::WebView)
++
++ public:
++  // On or off; registered in chrome/browser/ui/browser_ui_prefs.cc.
++  static constexpr char kPrefName[] = "wolfweb.status_bar";
++  static constexpr int kHeight = 26;
++
++  explicit WolfWebStatusBar(BrowserView* browser_view);
++  WolfWebStatusBar(const WolfWebStatusBar&) = delete;
++  WolfWebStatusBar& operator=(const WolfWebStatusBar&) = delete;
++  ~WolfWebStatusBar() override;
++
++  // views::View:
++  gfx::Size CalculatePreferredSize(
++      const views::SizeBounds& available_size) const override;
++  void AddedToWidget() override;
++
++ private:
++  bool IsWanted() const;
++  void OnPrefChanged();
++
++  raw_ptr<BrowserView> browser_view_;
++  PrefChangeRegistrar pref_registrar_;
++  bool loaded_ = false;
++};
++
++#endif  // CHROME_BROWSER_UI_VIEWS_FRAME_WOLFWEB_STATUS_BAR_H_
