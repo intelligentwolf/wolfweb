@@ -46,6 +46,8 @@ wrap_app! {
                     Some(&CefString::from("auto")),
                 );
             }
+            #[cfg(target_os = "linux")]
+            disable_hardware_video_to_gl(command_line);
         }
 
         fn on_register_custom_schemes(&self, registrar: Option<&mut SchemeRegistrar>) {
@@ -70,6 +72,32 @@ wrap_app! {
             Some(WolfBrowserProcessHandler::new())
         }
     }
+}
+
+/// Chromium's Linux feature for handing hardware-decoded video frames to OpenGL.
+/// Source: chromium media/base/media_switches.cc:1506 BASE_FEATURE(kAcceleratedVideoDecodeLinuxGL, ENABLED_BY_DEFAULT).
+#[cfg(target_os = "linux")]
+const VIDEO_DECODE_TO_GL: &str = "AcceleratedVideoDecodeLinuxGL";
+
+/// Videos decode on the processor instead of handing GPU-decoded frames to OpenGL. On a Radeon 890M (Mesa 26.2,
+/// Wayland) every hardware-decoded frame drew black: importing it into ANGLE failed (eglCreateImage 0x3009
+/// EGL_BAD_MATCH, then OzoneImageBacking::ProduceSkiaGanesh, ozone_image_backing.cc:320), with the stock CEF too.
+/// With the feature off the picture shows (observed 2026-11-04). Someone who wants it back passes
+/// --enable-features=AcceleratedVideoDecodeLinuxGL.
+///
+/// CEF has already written its own --disable-features list by the time this runs
+/// (Source: cef/libcef/common/chrome/chrome_main_delegate_cef.cc:405-424), so this adds to it rather than replacing
+/// it; CefCommandLine::AppendSwitchWithValue sets the switch's value, so the last one given is the one used.
+#[cfg(target_os = "linux")]
+fn disable_hardware_video_to_gl(command_line: &mut CommandLine) {
+    let value_of = |name: &str| CefString::from(&command_line.switch_value(Some(&CefString::from(name)))).to_string();
+    let listed = |list: &str| list.split(',').any(|f| f.trim() == VIDEO_DECODE_TO_GL);
+    let disabled = value_of("disable-features");
+    if listed(&value_of("enable-features")) || listed(&disabled) {
+        return;
+    }
+    let value = if disabled.trim().is_empty() { VIDEO_DECODE_TO_GL.to_string() } else { format!("{disabled},{VIDEO_DECODE_TO_GL}") };
+    command_line.append_switch_with_value(Some(&CefString::from("disable-features")), Some(&CefString::from(value.as_str())));
 }
 
 wrap_browser_process_handler! {
