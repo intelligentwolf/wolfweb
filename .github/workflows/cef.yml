@@ -7,9 +7,16 @@ name: cef
 
 on:
   workflow_dispatch:
+    inputs:
+      resume_run:
+        description: "Carry on from a failed cef run (its id): skips prepare and starts from that run's saved build"
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: write
+  actions: read
 
 # One CEF build at a time: they share the build-state artifact name.
 concurrency:
@@ -18,13 +25,16 @@ concurrency:
 
 jobs:
   prepare:
+    if: inputs.resume_run == ''
     uses: ./.github/workflows/cef-part.yml
     with: { step: ci-prepare }
 
   build_01:
     needs: prepare
+    # Runs after prepare, or in its place when resuming (prepare skipped).
+    if: ${{ !cancelled() && !failure() }}
     uses: ./.github/workflows/cef-part.yml
-    with: { step: ci-build }
+    with: { step: ci-build, from_run: "${{ inputs.resume_run }}" }
 
   build_02:
     needs: build_01

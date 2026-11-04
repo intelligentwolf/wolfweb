@@ -10,6 +10,11 @@ on:
         description: "build.sh step: ci-prepare, ci-build or ci-package"
         required: true
         type: string
+      from_run:
+        description: "Fetch the build so far from this earlier cef run instead of this one (resuming a failed run)"
+        required: false
+        type: string
+        default: ""
       final:
         description: "The last build job: running out of time is then a failure, not a hand-over"
         required: false
@@ -22,6 +27,7 @@ on:
 
 permissions:
   contents: write
+  actions: read # download-artifact from another run (from_run)
 
 jobs:
   part:
@@ -39,6 +45,8 @@ jobs:
         with:
           name: cef-build-state
           path: ${{ env.STATE_DIR }}
+          run-id: ${{ inputs.from_run || github.run_id }}
+          github-token: ${{ github.token }}
       - name: Unpack the build so far
         if: inputs.step != 'ci-prepare'
         run: build/cef/ci-state.sh restore
@@ -58,7 +66,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: cef-build-state
-          path: ${{ env.STATE_DIR }}/cef-build.tar.zst
+          path: ${{ env.STATE_DIR }}/cef-build.tar.zst.part-*
           if-no-files-found: error
           overwrite: true
           compression-level: 0
