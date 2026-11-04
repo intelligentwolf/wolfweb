@@ -19,6 +19,21 @@
   <p id="status" class="msg msg-ok no-print" role="status" aria-live="polite"></p>
   <p id="error" class="msg msg-err no-print" role="alert" aria-live="assertive"></p>
 
+  <section id="where" class="setup card no-print" aria-labelledby="where-title" hidden>
+    <h1 id="where-title" class="font-title">Where are you reading from?</h1>
+    <p class="muted">The Daily brings you the news for your own country. You can change this later in “Choose what's in it”.</p>
+    <form id="where-form" novalidate>
+      <div class="field">
+        <label for="where-country">Country</label>
+        <select id="where-country" aria-describedby="where-error"></select>
+        <p id="where-error" class="field-error" hidden>Choose your country.</p>
+      </div>
+      <div class="row end">
+        <button class="btn btn-primary" type="submit">Use this country</button>
+      </div>
+    </form>
+  </section>
+
   <section id="setup" class="setup card no-print" aria-labelledby="setup-title" hidden>
     <h1 id="setup-title" class="font-title">Your newspaper</h1>
     <p class="muted">WolfWeb makes you a front page from the things you're interested in — print it or save it as a PDF.</p>
@@ -26,6 +41,12 @@
       <div class="field">
         <label for="masthead">Name of your paper</label>
         <input id="masthead" type="text" autocomplete="off" maxlength="60">
+      </div>
+      <div class="field">
+        <label for="country">Where you're reading from</label>
+        <select id="country" aria-describedby="country-hint country-error"></select>
+        <p id="country-hint" class="muted small">World, national and section news (and each interest's search) are for this country.</p>
+        <p id="country-error" class="field-error" hidden>Choose your country.</p>
       </div>
       <div class="field">
         <label for="topic-input">Things you're interested in</label>
@@ -63,10 +84,11 @@
     </header>
     <section id="lead" class="lead"></section>
     <div id="sections"></div>
-    <footer class="colophon">Each story's opening paragraphs, with a link to the full article at its publisher. Interests via Bing News; feeds as you chose them.</footer>
+    <footer class="colophon">Each story's opening paragraphs, with a link to the full article at its publisher. Interests via Bing News, or for sections like World or Sport several publishers' section feeds; feeds as you chose them.</footer>
   </article>
   <!-- The printed edition (front page + inside pages), built from the same stories; only shown when printing. -->
   <div id="print-edition" class="print-edition" aria-hidden="true"></div>
+  <script src="countries.js"></script>
   <script src="daily.js"></script>
 </body>
 </html>

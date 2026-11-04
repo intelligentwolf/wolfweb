@@ -15,10 +15,10 @@ body { font-size: 16px; }
 form { display: flex; flex-direction: column; gap: 18px; }
 .field { display: flex; flex-direction: column; gap: 8px; border: 0; padding: 0; margin: 0; }
 .field label, legend { font-weight: 600; font-size: 14px; }
-.field input[type="text"], .field input[type="url"] {
+.field input[type="text"], .field input[type="url"], .field select {
   flex: 1 1 auto; min-width: 0; height: 40px; padding: 0 12px; border-radius: var(--radius-control); border: 1px solid var(--border); background: var(--surface-raised);
 }
-.field input[aria-invalid="true"] { border-color: var(--iw-red); }
+.field input[aria-invalid="true"], .field select[aria-invalid="true"] { border-color: var(--iw-red); }
 .field-error { color: var(--iw-red-text); font-size: 14px; margin: 0; }
 .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .row.end { justify-content: flex-end; }

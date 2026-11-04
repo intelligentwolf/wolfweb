@@ -1,5 +1,5 @@
-// The WolfWeb Daily: a broadsheet front page made from the user's interests (Bing News searches, or the BBC's
-// section feed for a section name Bing has no feed for) and chosen news feeds (RSS/Atom). Extension pages may fetch
+// The WolfWeb Daily: a broadsheet front page made from the user's interests (Bing News searches, or several
+// publishers' section feeds for a section name Bing has no feed for) and chosen news feeds (RSS/Atom). Extension pages may fetch
 // any http(s) feed (manifest host_permissions); everything from a
 // feed is put on the page as text or as http(s) link/image addresses only.
 (() => {
@@ -19,6 +19,7 @@
   // Ready on first open (BBC News top stories and technology); "Choose what's in it" changes it.
   const DEFAULTS = {
     masthead: "The WolfWeb Daily",
+    country: null, // ISO 3166 code the reader chose ("Where are you reading from?"); asked for until they do
     topics: [],
     feeds: ["https://feeds.bbci.co.uk/news/rss.xml", "https://feeds.bbci.co.uk/news/technology/rss.xml"],
   };
@@ -51,46 +52,160 @@
   }
   const saveSettings = () => chrome.storage.local.set({ daily: settings });
 
+  // ── Where the reader is ────────────────────────────────────────────────────────────────────────────────────
+  // Asked, not assumed: the browser's language often says nothing about it (many Linux systems report en-US for
+  // everyone). The first guess is the computer's time zone (tz database zone.tab, countries.js), else the browser
+  // language's region.
+  const COUNTRY_NAMES = WOLFWEB_COUNTRIES.names;
+  const isCountry = (code) => typeof code === "string" && Object.hasOwn(COUNTRY_NAMES, code);
+  function guessCountry() {
+    let zone = "";
+    try {
+      zone = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+    } catch {
+      /* no time zone */
+    }
+    const fromZone = WOLFWEB_COUNTRIES.zones[zone];
+    if (isCountry(fromZone)) return fromZone;
+    const fromLang = ((navigator.language || "").split("-")[1] || "").toUpperCase();
+    return isCountry(fromLang) ? fromLang : "";
+  }
+  // Until the reader has chosen, the guess (and the UK if there's no guess at all, as before).
+  const readerCountry = () => (isCountry(settings.country) ? settings.country : guessCountry() || "GB");
+
+  function countryName(code) {
+    try {
+      return new Intl.DisplayNames([navigator.language || "en"], { type: "region" }).of(code) || COUNTRY_NAMES[code];
+    } catch {
+      return COUNTRY_NAMES[code];
+    }
+  }
+
+  /** Fill a <select> with every country, sorted by its shown name, `selected` chosen ("" = "Choose your country"). */
+  function fillCountries(select, selected) {
+    const collator = new Intl.Collator(navigator.language || "en");
+    const options = Object.keys(COUNTRY_NAMES)
+      .map((code) => ({ code, name: countryName(code) }))
+      .sort((a, b) => collator.compare(a.name, b.name))
+      .map(({ code, name }) => {
+        const o = el("option", "", name);
+        o.value = code;
+        return o;
+      });
+    const none = el("option", "", "Choose your country");
+    none.value = "";
+    select.replaceChildren(none, ...options);
+    select.value = isCountry(selected) ? selected : "";
+  }
+
+  function askWhere() {
+    fillCountries($("where-country"), guessCountry());
+    $("paper").hidden = true;
+    $("setup").hidden = true;
+    $("where").hidden = false;
+    $("where-country").focus();
+  }
+
   // ── Fetching and reading feeds ─────────────────────────────────────────────────────────────────────────────
   // Interests come from Bing News' RSS search: unlike Google News it links straight to the publisher (in the
   // link's url= parameter), with a real summary and a picture per story (checked 2026-11-03).
   function topicFeed(topic) {
-    const region = ((navigator.language || "en-GB").split("-")[1] || "GB").toUpperCase();
     const u = new URL("https://www.bing.com/news/search");
     u.searchParams.set("q", topic);
     u.searchParams.set("format", "rss");
-    u.searchParams.set("cc", region);
+    u.searchParams.set("cc", readerCountry());
     return u.toString();
   }
 
   // Bing won't search for a broad section name (World, World News, UK, Business, Sport…): for those it sends its
   // own news web page, not RSS, whatever format= says (checked 2026-11-04; "AI" or "Formula 1" come back as feeds).
-  // Those topics are read from the BBC's matching section feed instead (each answered 200 with items, 2026-11-04).
+  // Those topics are read from several section feeds instead, the newest few from each, so no one publisher fills
+  // the section and it still works when one of them is down. They follow the reader, not the UK:
+  // - everyone: Google News' section for their own country, in their language (the one source that covers every
+  //   country and language; its links go through Google, so those stories keep the feed's headline only);
+  // - English readers: also international publishers — the Guardian's edition for their country (uk, us, au, else
+  //   its international edition), the New York Times, Al Jazeera, DW — and, in the UK only, Sky and the BBC;
+  // - "UK" asked for by name is the UK's news wherever the reader is.
+  // Every address answered 200 with items on 2026-11-04 (the New York Times' sport feed and DW's science feed were
+  // empty, so they aren't used).
+  const PER_PUBLISHER = 3;
+  const READER_LANG = (navigator.language || "en").toLowerCase().split("-")[0];
+  const ENGLISH = READER_LANG === "en";
+  const googleWhere = (region) => `hl=${ENGLISH ? `en-${region}` : READER_LANG}&gl=${region}&ceid=${region}:${READER_LANG}`;
+  // A Google News section (WORLD, NATION, BUSINESS…), or "" for the country's top stories.
+  const GOOGLE = (section, region) =>
+    `${section ? `https://news.google.com/rss/headlines/section/topic/${section}` : "https://news.google.com/rss"}?${googleWhere(region)}`;
+  const GOOGLE_SEARCH = (query, region) => `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&${googleWhere(region)}`;
+  const GUARDIAN = (path) => `https://www.theguardian.com/${path}/rss`;
+  const SKY = (name) => `https://feeds.skynews.com/feeds/rss/${name}.xml`;
+  const NYT = (name) => `https://rss.nytimes.com/services/xml/rss/nyt/${name}.xml`;
   const BBC = (path) => `https://feeds.bbci.co.uk/${path}/rss.xml`;
-  const SECTION_FEEDS = new Map([
-    ...["world", "world news", "international", "international news", "global news"].map((k) => [k, BBC("news/world")]),
-    ...["uk", "uk news", "britain", "national news"].map((k) => [k, BBC("news/uk")]),
-    ...["news", "top stories", "headlines", "top news"].map((k) => [k, BBC("news")]),
-    ...["business", "business news", "economy", "finance"].map((k) => [k, BBC("news/business")]),
-    ...["politics", "political news"].map((k) => [k, BBC("news/politics")]),
-    ...["sport", "sports", "sport news", "sports news"].map((k) => [k, BBC("sport")]),
-    ...["technology", "tech", "tech news", "technology news"].map((k) => [k, BBC("news/technology")]),
-    ...["science", "science news", "environment"].map((k) => [k, BBC("news/science_and_environment")]),
-    ...["health", "health news"].map((k) => [k, BBC("news/health")]),
-    ...["entertainment", "entertainment news", "arts", "culture"].map((k) => [k, BBC("news/entertainment_and_arts")]),
-    ...["education", "education news"].map((k) => [k, BBC("news/education")]),
-  ]);
+  const DW = (name) => `https://rss.dw.com/rdf/rss-en-${name}`;
+  const ALJAZEERA = "https://www.aljazeera.com/xml/rss/all.xml";
 
-  /** A topic's stories: Bing News' search, or the BBC's section feed when Bing has no feed for a section name. */
+  /** Each section name → its feeds, for a reader in `region` (an ISO 3166 country code). */
+  function sectionFeedMap(region) {
+    const ukReader = region === "GB";
+    const edition = { GB: "uk", US: "us", AU: "au" }[region]; // the Guardian's editions; others get its international one
+    const guardianEd = (path) => GUARDIAN(edition ? `${edition}/${path}` : path);
+    const national = {
+      GB: [GUARDIAN("uk-news"), SKY("home"), BBC("news")],
+      US: [GUARDIAN("us-news"), NYT("HomePage")],
+      AU: [GUARDIAN("australia-news")],
+    }[region] || [];
+    // [names, Google News section ("" = the country's top stories, null = a Google News search for the name),
+    //  English publishers, UK-only publishers]
+    const sections = [
+      [["world", "world news", "international", "international news", "global news"], "WORLD",
+        [GUARDIAN("world"), NYT("World"), ALJAZEERA, DW("world")], [SKY("world"), BBC("news/world")]],
+      [["news", "top stories", "headlines", "top news", "national news"], "", national, []],
+      [["business", "business news", "economy", "finance"], "BUSINESS",
+        [guardianEd("business"), NYT("Business"), DW("bus")], [SKY("business"), BBC("news/business")]],
+      [["politics", "political news"], null, region === "US" ? [NYT("Politics")] : [],
+        [GUARDIAN("politics"), SKY("politics"), BBC("news/politics")]],
+      [["sport", "sports", "sport news", "sports news"], "SPORTS",
+        [guardianEd("sport")], ["https://www.skysports.com/rss/12040", BBC("sport")]],
+      [["technology", "tech", "tech news", "technology news"], "TECHNOLOGY",
+        [guardianEd("technology"), NYT("Technology")], [SKY("technology"), BBC("news/technology")]],
+      [["science", "science news", "environment"], "SCIENCE", [GUARDIAN("science"), NYT("Science")], [BBC("news/science_and_environment")]],
+      [["health", "health news"], "HEALTH", [GUARDIAN("society/health"), NYT("Health")], [BBC("news/health")]],
+      [["entertainment", "entertainment news", "arts", "culture"], "ENTERTAINMENT",
+        [guardianEd("culture"), NYT("Arts")], [SKY("entertainment"), BBC("news/entertainment_and_arts")]],
+      [["education", "education news"], null, [GUARDIAN("education"), NYT("Education")], [BBC("news/education")]],
+    ];
+    const feedsFor = (name, google, english, ukOnly) => {
+      const publishers = [...(ENGLISH ? english : []), ...(ENGLISH && ukReader ? ukOnly : [])];
+      // The country's top stories come from Google only where WolfWeb knows no national publisher for it.
+      const fromGoogle =
+        google === "" ? (publishers.length ? [] : [GOOGLE("", region)]) : [google ? GOOGLE(google, region) : GOOGLE_SEARCH(name, region)];
+      return [...fromGoogle, ...publishers];
+    };
+    return new Map([
+      ...sections.flatMap(([names, google, english, ukOnly]) => names.map((n) => [n, feedsFor(n, google, english, ukOnly)])),
+      // The UK by name: the UK's own news, for any reader.
+      ...["uk", "uk news", "britain"].map((n) => [n, [GOOGLE("NATION", "GB"), GUARDIAN("uk-news"), SKY("uk"), BBC("news/uk")]]),
+    ]);
+  }
+
+  /** The newest few stories from each of a section's feeds; fails only if none of them answers. */
+  async function fetchSection(feeds, topic) {
+    const results = await Promise.allSettled(feeds.map((u) => fetchFeed(u, topic)));
+    const got = results.filter((r) => r.status === "fulfilled").map((r) => r.value);
+    if (!got.length) throw new Error("none of the section's feeds answered");
+    const stories = got.flatMap((f) => [...f.stories].sort((a, b) => b.date - a.date).slice(0, PER_PUBLISHER));
+    return { title: topic, stories };
+  }
+
+  /** A topic's stories: Bing News' search, or several publishers' section feeds when Bing has no feed for it. */
   async function fetchTopic(topic) {
-    const section = SECTION_FEEDS.get(topic.trim().toLowerCase().replace(/\s+/g, " "));
+    const feeds = sectionFeedMap(readerCountry()).get(topic.trim().toLowerCase().replace(/\s+/g, " "));
     try {
       const f = await fetchFeed(topicFeed(topic), topic);
-      if (f.stories.length || !section) return f;
+      if (f.stories.length || !feeds) return f;
     } catch (e) {
-      if (!section) throw e;
+      if (!feeds) throw e;
     }
-    return fetchFeed(section, topic); // stories are filed under the user's topic name (parseFeed's section)
+    return fetchSection(feeds, topic); // stories are filed under the user's topic name (parseFeed's section)
   }
 
   /** Bing's tracking link → the publisher's own address. */
@@ -575,8 +690,17 @@
   }
 
   function openSetup() {
-    draft = { masthead: settings.masthead, topics: [...settings.topics], feeds: [...settings.feeds] };
+    draft = {
+      masthead: settings.masthead,
+      country: isCountry(settings.country) ? settings.country : guessCountry(),
+      topics: [...settings.topics],
+      feeds: [...settings.feeds],
+    };
+    fillCountries($("country"), draft.country);
+    $("country-error").hidden = true;
+    $("country").removeAttribute("aria-invalid");
     renderSetup();
+    $("where").hidden = true;
     $("paper").hidden = true;
     $("setup").hidden = false;
     $("setup-cancel").hidden = !(settings.topics.length || settings.feeds.length);
@@ -592,6 +716,13 @@
     renderSetup();
     input.focus();
   }
+  $("country").addEventListener("change", () => {
+    draft.country = $("country").value || null;
+    if (draft.country) {
+      $("country-error").hidden = true;
+      $("country").removeAttribute("aria-invalid");
+    }
+  });
   $("topic-add").addEventListener("click", addTopic);
   $("topic-input").addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
@@ -616,6 +747,12 @@
     e.preventDefault();
     if ($("topic-input").value.trim()) addTopic();
     draft.masthead = $("masthead").value.trim() || DEFAULTS.masthead;
+    if (!isCountry(draft.country)) {
+      $("country-error").hidden = false;
+      $("country").setAttribute("aria-invalid", "true");
+      $("country").focus();
+      return;
+    }
     if (!draft.topics.length && !draft.feeds.length) {
       $("topic-error").hidden = false;
       $("topic-input").setAttribute("aria-invalid", "true");
@@ -625,6 +762,28 @@
     settings = draft;
     await saveSettings();
     await refresh();
+  });
+  $("where-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const select = $("where-country");
+    if (!isCountry(select.value)) {
+      $("where-error").hidden = false;
+      select.setAttribute("aria-invalid", "true");
+      select.focus();
+      return;
+    }
+    $("where-error").hidden = true;
+    select.removeAttribute("aria-invalid");
+    settings = { ...settings, country: select.value };
+    await saveSettings();
+    $("where").hidden = true;
+    await refresh();
+  });
+  $("where-country").addEventListener("change", () => {
+    if ($("where-country").value) {
+      $("where-error").hidden = true;
+      $("where-country").removeAttribute("aria-invalid");
+    }
   });
   $("setup-cancel").addEventListener("click", () => {
     $("setup").hidden = true;
@@ -659,7 +818,11 @@
   (async () => {
     await loadSettings();
     if (!settings.topics.length && !settings.feeds.length) {
-      openSetup();
+      openSetup(); // asks where they are along with what to put in it
+      return;
+    }
+    if (!isCountry(settings.country)) {
+      askWhere();
       return;
     }
     const { dailyEdition } = await chrome.storage.local.get({ dailyEdition: null });
