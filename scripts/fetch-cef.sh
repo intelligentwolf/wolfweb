@@ -51,6 +51,7 @@ fi
 
 # export-cef-dir unpacks next to the output folder and moves the archive's contents into it; give it a copy so the
 # original stays put.
+mkdir -p third_party # not in a fresh checkout
 copy="third_party/$(basename "$archive")"
 cp "$archive" "$copy"
 target/tools/bin/export-cef-dir --force --archive "$copy" third_party/cef
