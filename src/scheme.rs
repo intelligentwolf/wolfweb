@@ -73,7 +73,7 @@ enum Thread {
 fn thread_for(cmd: &str) -> Option<Thread> {
     if crate::import::is_api_command(cmd) || cmd == "wolfmail/open" || cmd == "chrome-theme/image" || cmd.starts_with("default-browser/") {
         Some(Thread::Blocking)
-    } else if cmd == "browser/command" || cmd == "pdf/save" || cmd == "engine/features" || cmd == "menu-bar/set" || cmd == "status-bar/set" || cmd == "chrome-theme" {
+    } else if cmd == "browser/command" || cmd == "pdf/save" || cmd == "engine/features" || cmd == "menu-bar/set" || cmd == "status-bar/set" || cmd == "chrome-theme" || cmd == "languages/region" {
         Some(Thread::Ui)
     } else {
         None

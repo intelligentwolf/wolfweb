@@ -15,6 +15,7 @@ mod defaults;
 mod desktop;
 mod extension;
 mod import;
+mod languages;
 mod menu;
 #[cfg(target_os = "macos")]
 pub mod mac;

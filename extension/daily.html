@@ -21,7 +21,7 @@
 
   <section id="where" class="setup card no-print" aria-labelledby="where-title" hidden>
     <h1 id="where-title" class="font-title">Where are you reading from?</h1>
-    <p class="muted">The Daily brings you the news for your own country. You can change this later in “Choose what's in it”.</p>
+    <p class="muted">The Daily brings you the news for your own country, and websites are asked for your language as it's used there. You can change this later in “Choose what's in it”.</p>
     <form id="where-form" novalidate>
       <div class="field">
         <label for="where-country">Country</label>
@@ -45,7 +45,7 @@
       <div class="field">
         <label for="country">Where you're reading from</label>
         <select id="country" aria-describedby="country-hint country-error"></select>
-        <p id="country-hint" class="muted small">World, national and section news (and each interest's search) are for this country.</p>
+        <p id="country-hint" class="muted small">World, national and section news (and each interest's search) are for this country. Websites are also asked for your language as it's used there.</p>
         <p id="country-error" class="field-error" hidden>Choose your country.</p>
       </div>
       <div class="field">
@@ -90,5 +90,6 @@
   <div id="print-edition" class="print-edition" aria-hidden="true"></div>
   <script src="countries.js"></script>
   <script src="daily.js"></script>
+  <script src="region.js"></script>
 </body>
 </html>

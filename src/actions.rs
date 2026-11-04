@@ -84,6 +84,10 @@ pub fn api(cmd: &str, params: &Params) -> Reply {
             Some(context) => crate::chrome_theme::current(&context),
             None => Reply::error(409, "Open a WolfWeb window first."),
         },
+        "languages/region" => match profile_context() {
+            Some(context) => crate::languages::set_region(&context, params),
+            None => Reply::error(409, "Open a WolfWeb window first."),
+        },
         // Blocking thread.
         "chrome-theme/image" => crate::chrome_theme::uploaded_image(params),
         "engine/features" => {
