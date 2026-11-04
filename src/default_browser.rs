@@ -96,7 +96,7 @@ mod platform {
             let r = unsafe { CFStringCreateWithCString(std::ptr::null(), c.as_ptr(), K_CF_STRING_ENCODING_UTF8) };
             (!r.is_null()).then_some(CfString(r))
         }
-        fn to_string(&self) -> String {
+        fn to_rust_string(&self) -> String {
             let mut buf = vec![0 as c_char; 512];
             // SAFETY: buf has buf.len() bytes; CFStringGetCString writes at most that, NUL-terminated.
             let ok = unsafe { CFStringGetCString(self.0, buf.as_mut_ptr(), buf.len() as isize, K_CF_STRING_ENCODING_UTF8) };
@@ -122,7 +122,7 @@ mod platform {
             return Ok(false);
         }
         let handler = CfString(handler);
-        Ok(handler.to_string().eq_ignore_ascii_case(BUNDLE_ID))
+        Ok(handler.to_rust_string().eq_ignore_ascii_case(BUNDLE_ID))
     }
 
     pub fn make_default() -> Result<String, String> {
