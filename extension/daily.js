@@ -1,5 +1,6 @@
-// The WolfWeb Daily: a broadsheet front page made from the user's interests (Google News searches) and chosen
-// news feeds (RSS/Atom). Extension pages may fetch any http(s) feed (manifest host_permissions); everything from a
+// The WolfWeb Daily: a broadsheet front page made from the user's interests (Bing News searches, or the BBC's
+// section feed for a section name Bing has no feed for) and chosen news feeds (RSS/Atom). Extension pages may fetch
+// any http(s) feed (manifest host_permissions); everything from a
 // feed is put on the page as text or as http(s) link/image addresses only.
 (() => {
   const $ = (id) => document.getElementById(id);
@@ -60,6 +61,36 @@
     u.searchParams.set("format", "rss");
     u.searchParams.set("cc", region);
     return u.toString();
+  }
+
+  // Bing won't search for a broad section name (World, World News, UK, Business, Sport…): for those it sends its
+  // own news web page, not RSS, whatever format= says (checked 2026-11-04; "AI" or "Formula 1" come back as feeds).
+  // Those topics are read from the BBC's matching section feed instead (each answered 200 with items, 2026-11-04).
+  const BBC = (path) => `https://feeds.bbci.co.uk/${path}/rss.xml`;
+  const SECTION_FEEDS = new Map([
+    ...["world", "world news", "international", "international news", "global news"].map((k) => [k, BBC("news/world")]),
+    ...["uk", "uk news", "britain", "national news"].map((k) => [k, BBC("news/uk")]),
+    ...["news", "top stories", "headlines", "top news"].map((k) => [k, BBC("news")]),
+    ...["business", "business news", "economy", "finance"].map((k) => [k, BBC("news/business")]),
+    ...["politics", "political news"].map((k) => [k, BBC("news/politics")]),
+    ...["sport", "sports", "sport news", "sports news"].map((k) => [k, BBC("sport")]),
+    ...["technology", "tech", "tech news", "technology news"].map((k) => [k, BBC("news/technology")]),
+    ...["science", "science news", "environment"].map((k) => [k, BBC("news/science_and_environment")]),
+    ...["health", "health news"].map((k) => [k, BBC("news/health")]),
+    ...["entertainment", "entertainment news", "arts", "culture"].map((k) => [k, BBC("news/entertainment_and_arts")]),
+    ...["education", "education news"].map((k) => [k, BBC("news/education")]),
+  ]);
+
+  /** A topic's stories: Bing News' search, or the BBC's section feed when Bing has no feed for a section name. */
+  async function fetchTopic(topic) {
+    const section = SECTION_FEEDS.get(topic.trim().toLowerCase().replace(/\s+/g, " "));
+    try {
+      const f = await fetchFeed(topicFeed(topic), topic);
+      if (f.stories.length || !section) return f;
+    } catch (e) {
+      if (!section) throw e;
+    }
+    return fetchFeed(section, topic); // stories are filed under the user's topic name (parseFeed's section)
   }
 
   /** Bing's tracking link → the publisher's own address. */
@@ -226,7 +257,7 @@
 
   async function buildEdition() {
     const jobs = [
-      ...settings.topics.map((t) => fetchFeed(topicFeed(t), t).then((f) => ({ name: t, stories: f.stories }))),
+      ...settings.topics.map((t) => fetchTopic(t).then((f) => ({ name: t, stories: f.stories }))),
       // A feed's section (and each story's kicker) is the feed's own title, not its address.
       ...settings.feeds.map((u) =>
         fetchFeed(u, u).then((f) => ({ name: f.title, stories: f.stories.map((s) => ({ ...s, section: f.title })) })),
