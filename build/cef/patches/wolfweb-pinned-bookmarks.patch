@@ -1,0 +1,26 @@
+diff -ruN a/chrome/browser/ui/navigator/browser_navigator.cc b/chrome/browser/ui/navigator/browser_navigator.cc
+--- a/chrome/browser/ui/navigator/browser_navigator.cc	2026-11-04 05:47:43.692237398 +0000
++++ b/chrome/browser/ui/navigator/browser_navigator.cc	2026-11-04 05:47:43.717687461 +0000
+@@ -440,6 +440,22 @@
+       params->disposition == WindowOpenDisposition::CURRENT_TAB) {
+     params->disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
+   }
++  // WolfWeb: a pinned tab keeps its page. A bookmark opened while it's the
++  // tab in use (bookmarks bar, bookmark menus, the bookmark manager) opens in
++  // a new tab instead; the same address stays put, and so do bookmarklets
++  // (javascript: bookmarks run on the page they're used on).
++  if (params->disposition == WindowOpenDisposition::CURRENT_TAB &&
++      params->source_contents &&
++      ui::PageTransitionCoreTypeIs(params->transition,
++                                   ui::PAGE_TRANSITION_AUTO_BOOKMARK) &&
++      !params->url.SchemeIs(url::kJavaScriptScheme) &&
++      params->url != params->source_contents->GetLastCommittedURL()) {
++    TabStripModel* const tabs = params->browser->GetTabStripModel();
++    const int index = tabs->GetIndexOfWebContents(params->source_contents);
++    if (index != TabStripModel::kNoTab && tabs->IsTabPinned(index)) {
++      params->disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
++    }
++  }
+ 
+   switch (params->disposition) {
+     case WindowOpenDisposition::NEW_BACKGROUND_TAB:

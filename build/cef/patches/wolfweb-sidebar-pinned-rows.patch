@@ -1,0 +1,15 @@
+diff -ruN a/chrome/browser/ui/views/tabs/common/pinned_tab_container_view.cc b/chrome/browser/ui/views/tabs/common/pinned_tab_container_view.cc
+--- a/chrome/browser/ui/views/tabs/common/pinned_tab_container_view.cc	2026-11-04 05:47:43.699134093 +0000
++++ b/chrome/browser/ui/views/tabs/common/pinned_tab_container_view.cc	2026-11-04 05:47:43.718683022 +0000
+@@ -382,7 +382,10 @@
+ 
+   int x = 0;
+   int y = 0;
+-  int children_on_row = children.size();
++  // WolfWeb: at most 4 pinned tabs to a row in the sidebar (vertical tabs).
++  constexpr int kWolfWebMaxPinnedPerRow = 4;
++  int children_on_row =
++      std::min(static_cast<int>(children.size()), kWolfWebMaxPinnedPerRow);
+ 
+   if (children_on_row == 0) {
+     layouts.host_size = gfx::Size(0, 0);
