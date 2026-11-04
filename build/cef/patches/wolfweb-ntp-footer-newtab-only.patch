@@ -1,0 +1,36 @@
+diff -ruN a/chrome/browser/ui/webui/new_tab_footer/new_tab_footer_helper.cc b/chrome/browser/ui/webui/new_tab_footer/new_tab_footer_helper.cc
+--- a/chrome/browser/ui/webui/new_tab_footer/new_tab_footer_helper.cc
++++ b/chrome/browser/ui/webui/new_tab_footer/new_tab_footer_helper.cc
+@@ -11,11 +11,13 @@
+ #include "chrome/browser/ui/webui/new_tab_page_third_party/new_tab_page_third_party_ui.h"
+ #include "chrome/browser/ui/webui/ntp/new_tab_ui.h"
+ #include "chrome/common/pref_names.h"
++#include "chrome/common/webui_url_constants.h"
+ #include "components/prefs/pref_service.h"
+ #include "components/search/ntp_features.h"
+ #include "content/public/browser/navigation_controller.h"
+ #include "content/public/browser/navigation_entry.h"
+ #include "extensions/common/constants.h"
++#include "extensions/common/manifest_handlers/chrome_url_overrides_handler.h"
+ 
+ namespace ntp_footer {
+ 
+@@ -31,7 +33,17 @@
+     return false;
+   }
+ 
+-  return extension_managing_ntp->id() == url.GetHost();
++  if (extension_managing_ntp->id() != url.GetHost()) {
++    return false;
++  }
++  // WolfWeb: only the extension's own new tab page, not every page of that
++  // extension. WolfWeb's built-in extension also has its Daily, settings and
++  // other pages, which must not get the new tab page's footer. The manifest's
++  // chrome_url_overrides "newtab" entry is that page's URL.
++  const extensions::URLOverrides::URLOverrideMap& overrides =
++      extensions::URLOverrides::GetChromeURLOverrides(extension_managing_ntp);
++  const auto newtab = overrides.find(chrome::kChromeUINewTabHost);
++  return newtab != overrides.end() && newtab->second.path() == url.path();
+ }
+ 
+ bool IsNtp(const GURL& url,

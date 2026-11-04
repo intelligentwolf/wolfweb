@@ -91,7 +91,7 @@ diff -ruN a/chrome/browser/ui/views/frame/layout/browser_view_layout.h b/chrome/
    raw_ptr<views::Label> web_app_window_title = nullptr;
 diff -ruN a/chrome/browser/ui/views/frame/layout/browser_view_tabbed_layout_impl.cc b/chrome/browser/ui/views/frame/layout/browser_view_tabbed_layout_impl.cc
 --- a/chrome/browser/ui/views/frame/layout/browser_view_tabbed_layout_impl.cc	2026-11-04 09:31:01.965060695 +0000
-+++ b/chrome/browser/ui/views/frame/layout/browser_view_tabbed_layout_impl.cc	2026-11-04 09:32:17.525238468 +0000
++++ b/chrome/browser/ui/views/frame/layout/browser_view_tabbed_layout_impl.cc	2026-11-04 17:49:04.864138467 +0000
 @@ -216,6 +216,8 @@
    SidePanelContentAnimation side_panel_content_animation;
    // WolfWeb's menu bar row; empty when it isn't shown.
@@ -113,7 +113,7 @@ diff -ruN a/chrome/browser/ui/views/frame/layout/browser_view_tabbed_layout_impl
  
    BrowserLayoutParams params = layout_data_->revised_params;
    bool needs_exclusion = true;
-@@ -1536,6 +1543,28 @@
+@@ -1536,6 +1543,30 @@
      }
    }
  
@@ -122,8 +122,10 @@ diff -ruN a/chrome/browser/ui/views/frame/layout/browser_view_tabbed_layout_impl
 +  // it. Not in fullscreen (that includes a video played fullscreen). Insetting
 +  // only the bottom leaves the frame-control exclusion areas as they are
 +  // (BrowserLayoutParams::Inset shrinks them by the left/right and top insets).
-+  if (IsParentedTo(views().wolfweb_status_bar, views().browser_view) &&
-+      views().wolfweb_status_bar->GetVisible()) {
++  // Whether it's shown is its preferred height (zero when switched off), not
++  // GetVisible(): the layout itself hides it in fullscreen (AddChild's
++  // visibility), so after fullscreen GetVisible() would keep it hidden.
++  if (IsParentedTo(views().wolfweb_status_bar, views().browser_view)) {
 +    const bool fullscreen =
 +        layout_data_->window_state == WindowState::kFullscreen ||
 +        layout_data_->window_state == WindowState::kFullscreenWithToolbar;
