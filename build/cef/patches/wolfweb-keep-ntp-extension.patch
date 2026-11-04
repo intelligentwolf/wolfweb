@@ -1,0 +1,16 @@
+diff -ruN a/chrome/browser/ui/views/side_panel/customize_chrome/customize_chrome_utils.cc b/chrome/browser/ui/views/side_panel/customize_chrome/customize_chrome_utils.cc
+--- a/chrome/browser/ui/views/side_panel/customize_chrome/customize_chrome_utils.cc	2026-11-04 08:29:01.426821080 +0000
++++ b/chrome/browser/ui/views/side_panel/customize_chrome/customize_chrome_utils.cc	2026-11-04 08:29:01.447964633 +0000
+@@ -51,6 +51,12 @@
+     if (!current_extension || extension_id == current_extension->id()) {
+       return;
+     }
++    // WolfWeb: its new-tab page is WolfWeb's own built-in extension, which
++    // shows the background chosen here itself; turning it off would take
++    // WolfWeb's own pages with it.
++    if (current_extension->id() == "fhmfanjkjkjnbognbfdiegdineklmkjm") {
++      return;
++    }
+ 
+     extension_id = current_extension->id();
+     extensions::ExtensionRegistrar::Get(browser_context)
