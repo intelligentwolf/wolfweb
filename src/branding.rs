@@ -159,6 +159,21 @@ const LOGOS: &[(&str, &[u8])] = &[
     ("23195e26c92c275e99b9c55433e5add1741af93171cdee0ef6c4013f8a6cf205", WORDMARK_WHITE_2X),
 ];
 
+/// SHA-256 of the earlier wolf-head logo (resources/brand/wolf-<N>.png before the W-with-ears icon) → today's image
+/// of the same size. WolfWeb's own engine (build/cef/build.sh brand()) bakes the logo into its packs at build time,
+/// so an engine built before the change carries the old head; this swaps it at run time like Chromium's own logos.
+/// Checked against the cef-156.0.15 engine's packs: chrome_100_percent.pak 14307 (32 px), 14309 (16 px);
+/// chrome_200_percent.pak 14307 (64 px), 40264 (32 px); resources.pak 14150/14151/14152 (64/128/256 px),
+/// 14187/14188 (16/24 px). The 48 px file is in none of them.
+const OLD_WOLF_LOGOS: &[(&str, &[u8])] = &[
+    ("40455b05e71f183a0f8b7001407e51a1b92f7bec65bedb3e9014ef74a4622e94", WOLF_16),
+    ("48fad94af379953a956b191b697c279ff3f446b05a75d7dc85ee5c0a9fd326f2", WOLF_24),
+    ("30589d80f45b984c4aa6bc0465df0fbbb32d1e69f7564d9dd8f82122593a08ac", WOLF_32),
+    ("e9ea6d442a10a40b44aac36603bc69a686ef8556ba4dbd1ecbbac022eebe59f9", WOLF_64),
+    ("e4915017920d92dd9824172190731cd50a01e53d0a6f2fdf4ab456c02791448d", WOLF_128),
+    ("d1894c99b64eb8394b052b6e2c2bc0072d6ac37240781b262d5b5bf448a9ebd6", WOLF_256),
+];
+
 /// Which resource ids to replace, per pack.
 #[derive(Default)]
 struct LogoIds {
@@ -199,8 +214,14 @@ fn pak_dir() -> Option<std::path::PathBuf> {
         .find(|d| d.join("chrome_100_percent.pak").is_file())
 }
 
-/// Resource ids in one pack whose bytes are a known Chromium logo.
+/// Resource ids in one pack whose bytes are a known Chromium logo or the old wolf head.
 fn scan(pak: &std::path::Path) -> std::collections::HashMap<i32, &'static [u8]> {
+    scan_for(pak, &[LOGOS, OLD_WOLF_LOGOS])
+}
+
+type LogoTable = &'static [(&'static str, &'static [u8])];
+
+fn scan_for(pak: &std::path::Path, tables: &[LogoTable]) -> std::collections::HashMap<i32, &'static [u8]> {
     use sha2::{Digest, Sha256};
     let mut found = std::collections::HashMap::new();
     let Ok(data) = std::fs::read(pak) else { return found };
@@ -209,7 +230,7 @@ fn scan(pak: &std::path::Path) -> std::collections::HashMap<i32, &'static [u8]> 
             continue;
         }
         let hash: String = Sha256::digest(bytes).iter().map(|b| format!("{b:02x}")).collect();
-        if let Some((_, image)) = LOGOS.iter().find(|(h, _)| *h == hash) {
+        if let Some((_, image)) = tables.iter().flat_map(|t| t.iter()).find(|(h, _)| *h == hash) {
             found.insert(i32::from(id), *image);
         }
     }
@@ -320,7 +341,8 @@ mod tests {
 
     /// Every logo in this CEF build's packs is found by fingerprint, and replaced by an image of the same size.
     /// Skipped when the runtime hasn't been fetched. WolfWeb's own engine (build/cef/build.sh brand()) already
-    /// carries the wolf in its packs: then no Chromium logo may be left for the run-time replacement to find.
+    /// carries the wolf in its packs (today's, or the old head from an engine built before the icon changed): then no
+    /// Chromium logo may be left, and every old head is swapped for today's image of the same size.
     #[test]
     fn logos_are_found_by_fingerprint() {
         let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("third_party/cef");
@@ -328,9 +350,20 @@ mod tests {
             return;
         }
         let pak100 = std::fs::read(dir.join("chrome_100_percent.pak")).unwrap();
-        if pak100.windows(super::WOLF_16.len()).any(|w| w == super::WOLF_16) {
-            let left = super::scan(&dir.join("chrome_100_percent.pak"));
-            assert!(left.is_empty(), "Chromium logos left in WolfWeb's own engine: {}", left.len());
+        let has_wolf = pak100.windows(super::WOLF_16.len()).any(|w| w == super::WOLF_16);
+        let old_wolf = super::scan_for(&dir.join("chrome_100_percent.pak"), &[super::OLD_WOLF_LOGOS]);
+        if has_wolf || !old_wolf.is_empty() {
+            for pak in ["chrome_100_percent.pak", "chrome_200_percent.pak", "resources.pak"] {
+                let left = super::scan_for(&dir.join(pak), &[super::LOGOS]);
+                assert!(left.is_empty(), "Chromium logos left in WolfWeb's own engine ({pak}): {}", left.len());
+                let data = std::fs::read(dir.join(pak)).unwrap();
+                let old = super::scan_for(&dir.join(pak), &[super::OLD_WOLF_LOGOS]);
+                for (id, bytes) in super::pak_entries(&data) {
+                    if let Some(replacement) = old.get(&i32::from(id)) {
+                        assert_eq!(png_size(bytes), png_size(replacement), "{pak} id {id}");
+                    }
+                }
+            }
             return;
         }
         let p100 = super::scan(&dir.join("chrome_100_percent.pak"));

@@ -14,3 +14,7 @@ anyhow = "1"
 [target.'cfg(target_os = "macos")'.dependencies]
 cef = { version = "=156.3.0", default-features = false, features = ["build-util"] }
 semver = "1"
+
+# Windows only: the resource-update API that puts WolfWeb's icon into wolfweb.exe (src/win_icon.rs).
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_LibraryLoader", "Win32_UI_WindowsAndMessaging"] }

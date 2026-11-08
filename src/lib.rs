@@ -77,6 +77,10 @@ pub fn run(args: &cef::args::Args, sandbox_info: *mut u8) -> i32 {
         root_cache_path: CefString::from(profile_str.as_str()),
         cache_path: CefString::from(profile_str.as_str()),
         persist_session_cookies: 1,
+        // Source: cef_types.h:490-496 — the ICON resource in the main exe that Chrome-style windows (and so the
+        // Windows taskbar) use; unset, they load Chromium's own icon (IDR_MAINFRAME) from libcef.dll. wolfweb.exe's
+        // icon is group 32512 (CEF bootstrap.rc IDI_APPLICATION; xtask puts WolfWeb's icon there, WIN_ICON_GROUP_ID).
+        chrome_app_icon_id: if cfg!(target_os = "windows") { 32512 } else { 0 },
         ..Default::default()
     };
 

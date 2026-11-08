@@ -10,6 +10,9 @@ use anyhow::{bail, Context, Result};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+#[cfg(any(target_os = "windows", test))]
+mod win_icon;
+
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
@@ -160,6 +163,8 @@ fn bundle(release: bool) -> Result<PathBuf> {
     fresh(&out)?;
     copy_cef_runtime(&cef, &out, true)?;
     std::fs::copy(cef.join("bootstrap.exe"), out.join("wolfweb.exe")).context("CEF's bootstrap.exe")?;
+    let ico = std::fs::read(root.join("resources/win/wolfweb.ico")).context("resources/win/wolfweb.ico")?;
+    win_icon::replace_exe_icon(&out.join("wolfweb.exe"), &ico)?;
     std::fs::copy(root.join("resources/win/wolfweb.exe.manifest"), out.join("wolfweb.exe.manifest"))?;
     std::fs::copy(target_dir(&root, release).join("wolfweb.dll"), out.join("wolfweb.dll"))?;
     copy_extension(&root, &out.join("extension"))?;
